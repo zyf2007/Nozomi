@@ -1,6 +1,6 @@
 # Nozomi Relay
 
-SMTP 到腾讯云 SES API 的邮件中转服务。Rauthy 等下游系统仍按 SMTP 发信，本服务接收邮件后用规则提取变量，再调用腾讯云 `SendEmail` 模板接口。
+Nozomi Relay 是一个基于 Go 的轻量级邮件中转服务。用于从下游 SMTP 转发到腾讯云 SES 等多个邮件推送服务 API。由于严格的风控政策，目前大量邮件提供商已经不再支持使用 SMTP 发送邮件，而是强制使用自家的 API。但是，常见的下游应用程序（例如 Rauthy, Gitea 等）仍然只能支持 SMTP 发信。本服务支持接收邮件后用 JavaScript 规则提取变量（例如验证码），再调用上游模板 Sendmail 接口。
 
 ## 功能
 
@@ -57,9 +57,9 @@ npm run dev
 
 ```js
 ({
-  templateId: 100001,
-  subject: input.subject,
-  variables: {
+  templateId: 100001, // 腾讯云模板 ID
+  subject: input.subject, // 邮件主题
+  variables: { // 模板变量映射
     code: "123456",
     action: "登录"
   }

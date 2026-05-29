@@ -243,7 +243,7 @@ function App() {
         body: JSON.stringify({ ...values, to: splitRecipients(values.to) }),
       })
       setSmtpTestResult(result)
-      message.success('测试邮件已走完 SMTP relay 链路')
+      message.success('测试邮件已发送')
       refresh()
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err)

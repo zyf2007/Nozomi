@@ -1,6 +1,6 @@
-import { Button, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, Table, Tag } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, Table, Tag, Tooltip, message } from 'antd'
 import type { FormInstance } from 'antd'
-import { CloudSyncOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { CloudSyncOutlined, CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import { requestJson } from '../api/client'
 import type { ProviderDetail, ProviderRule } from '../types'
 
@@ -250,7 +250,27 @@ export function ProviderModal({ provider, form, open, onClose, onSaved, onSyncTe
                     size="small"
                     pagination={false}
                     columns={[
-                      { title: 'ID', dataIndex: 'id', width: 120 },
+                      {
+                        title: 'ID',
+                        dataIndex: 'id',
+                        width: 160,
+                        render: (id: number) => (
+                          <Space size={8}>
+                            <span>{id}</span>
+                            <Tooltip title="复制 ID">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(String(id))
+                                  message.success('ID 已复制')
+                                }}
+                              />
+                            </Tooltip>
+                          </Space>
+                        ),
+                      },
                       { title: '名称', dataIndex: 'name' },
                       { title: '状态', dataIndex: 'status', width: 120 },
                       {

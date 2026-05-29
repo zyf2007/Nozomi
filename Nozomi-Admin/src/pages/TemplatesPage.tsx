@@ -1,5 +1,5 @@
-import { Button, Card, Table, Tag, message } from 'antd'
-import { CloudSyncOutlined } from '@ant-design/icons'
+import { Button, Card, Space, Table, Tag, Tooltip, message } from 'antd'
+import { CloudSyncOutlined, CopyOutlined } from '@ant-design/icons'
 import type { Template } from '../types'
 import { requestJson } from '../api/client'
 
@@ -29,7 +29,27 @@ export function TemplatesPage({ templates, onSynced }: Props) {
         rowKey="id"
         dataSource={templates}
         columns={[
-          { title: 'ID', dataIndex: 'id', width: 120 },
+          {
+            title: 'ID',
+            dataIndex: 'id',
+            width: 160,
+            render: (id: number) => (
+              <Space size={8}>
+                <span>{id}</span>
+                <Tooltip title="复制 ID">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(String(id))
+                      message.success('ID 已复制')
+                    }}
+                  />
+                </Tooltip>
+              </Space>
+            ),
+          },
           { title: '名称', dataIndex: 'name' },
           { title: '状态', dataIndex: 'status', width: 120 },
           {
