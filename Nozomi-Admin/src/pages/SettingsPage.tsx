@@ -26,6 +26,12 @@ export function SettingsPage({
   onSave,
 }: Props) {
   const sortedProviders = [...providers].sort((a, b) => b.weight - a.weight || a.id - b.id)
+  const typeLabelMap: Record<string, string> = {
+    tencent: '腾讯云 SES',
+    smtp: 'SMTP',
+    resend: 'Resend',
+    brevo: 'Brevo',
+  }
 
   return (
     <Card
@@ -61,7 +67,7 @@ export function SettingsPage({
             title: '类型',
             dataIndex: 'type',
             width: 110,
-            render: (v) => <Tag>{v === 'tencent' ? '腾讯云 SES' : 'SMTP'}</Tag>,
+            render: (v) => <Tag>{typeLabelMap[v] || v}</Tag>,
           },
           {
             title: '权重',

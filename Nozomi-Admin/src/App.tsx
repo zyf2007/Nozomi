@@ -79,6 +79,16 @@ function App() {
     async (providerId: number) => {
       const detail = await requestJson<ProviderDetail>(`/api/providers/${providerId}`)
       setProviderDetail(detail)
+      const fromAddress =
+        detail.tencent_config.from_address ||
+        detail.smtp_config.from_address ||
+        detail.resend_config.from_address ||
+        detail.brevo_config.from_address
+      const replyTo =
+        detail.tencent_config.reply_to ||
+        detail.smtp_config.reply_to ||
+        detail.resend_config.reply_to ||
+        detail.brevo_config.reply_to
       providerForm.setFieldsValue({
         name: detail.name,
         type: detail.type,
@@ -88,13 +98,15 @@ function App() {
         secret_id: detail.tencent_config.secret_id,
         secret_key: detail.tencent_config.secret_key,
         region: detail.tencent_config.region,
-        from_address: detail.tencent_config.from_address || detail.smtp_config.from_address,
-        reply_to: detail.tencent_config.reply_to || detail.smtp_config.reply_to,
+        from_address: fromAddress,
+        reply_to: replyTo,
         trigger_type: detail.tencent_config.trigger_type,
         host: detail.smtp_config.host,
         port: detail.smtp_config.port || 25,
         username: detail.smtp_config.username,
         password: '',
+        api_key: detail.resend_config.api_key || detail.brevo_config.api_key,
+        from_name: detail.brevo_config.from_name || 'Nozomi',
       })
     },
     [providerForm],
@@ -139,6 +151,10 @@ function App() {
       region: 'ap-guangzhou',
       trigger_type: '1',
       port: 25,
+      api_key: '',
+      from_address: '',
+      reply_to: '',
+      from_name: 'Nozomi',
     })
     setProviderOpen(true)
   }

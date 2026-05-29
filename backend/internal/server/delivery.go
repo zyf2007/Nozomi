@@ -4,18 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"mime"
-	"net"
-	"net/smtp"
 	"strconv"
 	"strings"
 	"time"
-	ses "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ses/v20201002"
 )
 
 type upstreamCandidate struct {
 	Provider
 	TencentConfig TencentConfig
 	SMTPConfig    SMTPConfig
+	ResendConfig  ResendConfig
+	BrevoConfig   BrevoConfig
 	Rules         []ProviderRule
 	Templates     []ProviderTemplate
 }
@@ -108,6 +107,18 @@ func (a *App) loadUpstreamCandidates(providerIDs []int64) ([]upstreamCandidate, 
 				item.SMTPConfig = cfg
 			}
 		}
+		if item.Type == "resend" {
+			cfg, err := a.loadResendConfig(strconv.FormatInt(item.ID, 10))
+			if err == nil {
+				item.ResendConfig = cfg
+			}
+		}
+		if item.Type == "brevo" {
+			cfg, err := a.loadBrevoConfig(strconv.FormatInt(item.ID, 10))
+			if err == nil {
+				item.BrevoConfig = cfg
+			}
+		}
 		items = append(items, item)
 	}
 	return items, nil
@@ -167,6 +178,24 @@ func (a *App) sendThroughProvider(candidate upstreamCandidate, input MailInput) 
 			return 0, 0, "", "", nil, err
 		}
 		return 0, 0, providerMessageID, "smtp", map[string]string{}, nil
+	case "resend":
+		providerMessageID, err := a.sendResend(candidate, input)
+		if err != nil {
+			return 0, 0, "", "", nil, err
+		}
+		if err := a.bumpProviderUsage(candidate.ID); err != nil {
+			return 0, 0, "", "", nil, err
+		}
+		return 0, 0, providerMessageID, "resend", map[string]string{}, nil
+	case "brevo":
+		providerMessageID, err := a.sendBrevo(candidate, input)
+		if err != nil {
+			return 0, 0, "", "", nil, err
+		}
+		if err := a.bumpProviderUsage(candidate.ID); err != nil {
+			return 0, 0, "", "", nil, err
+		}
+		return 0, 0, providerMessageID, "brevo", map[string]string{}, nil
 	default:
 		return 0, 0, "", "", nil, fmt.Errorf("未知上游类型")
 	}
@@ -184,59 +213,6 @@ func (a *App) matchProviderRule(candidate upstreamCandidate, input MailInput) (R
 		return result, rule.ID, nil
 	}
 	return RuleResult{}, 0, fmt.Errorf("没有规则匹配这封邮件，请在该上游的规则列表中新增规则")
-}
-
-func (a *App) sendTencent(candidate upstreamCandidate, input MailInput, result RuleResult) (string, error) {
-	client, err := a.tencentClient(candidate.TencentConfig)
-	if err != nil {
-		return "", err
-	}
-	cfg := candidate.TencentConfig
-	from := strings.TrimSpace(cfg.FromAddress)
-	if from == "" {
-		return "", fmt.Errorf("腾讯云发信地址未配置")
-	}
-	triggerType, _ := strconv.ParseUint(firstNonEmpty(cfg.TriggerType, "1"), 10, 64)
-	templateData, _ := json.Marshal(result.Variables)
-	req := ses.NewSendEmailRequest()
-	req.FromEmailAddress = &from
-	subject := firstNonEmpty(result.Subject, input.Subject)
-	req.Subject = &subject
-	for _, rcpt := range input.To {
-		v := rcpt
-		req.Destination = append(req.Destination, &v)
-	}
-	replyTo := firstNonEmpty(cfg.ReplyTo, from)
-	req.ReplyToAddresses = &replyTo
-	req.HeaderFrom = &from
-	req.TriggerType = &triggerType
-	req.Template = &ses.Template{TemplateID: &result.TemplateID, TemplateData: ptrStr(string(templateData))}
-	resp, err := client.SendEmail(req)
-	if err != nil {
-		return "", fmt.Errorf("%s", tencentErr(err))
-	}
-	if resp.Response != nil && resp.Response.MessageId != nil {
-		return *resp.Response.MessageId, nil
-	}
-	return "", nil
-}
-
-func (a *App) sendSMTPUpstream(candidate upstreamCandidate, input MailInput) (string, error) {
-	cfg := candidate.SMTPConfig
-	if strings.TrimSpace(cfg.Host) == "" {
-		return "", fmt.Errorf("SMTP 上游主机未配置")
-	}
-	hostPort := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
-	from := firstNonEmpty(strings.TrimSpace(cfg.FromAddress), input.From)
-	raw := buildMailMessage(from, input.To, input.Subject, input.Text, input.HTML, input.Headers)
-	var auth smtp.Auth
-	if strings.TrimSpace(cfg.Username) != "" {
-		auth = smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
-	}
-	if err := smtp.SendMail(hostPort, auth, from, input.To, []byte(raw)); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("smtp-%d-%d", candidate.ID, time.Now().UnixNano()), nil
 }
 
 func buildMailMessage(from string, to []string, subject, textBody, htmlBody string, headers map[string]string) string {

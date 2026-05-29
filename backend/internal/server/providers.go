@@ -2,12 +2,9 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	ses "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ses/v20201002"
 )
 
@@ -36,13 +33,15 @@ func (a *App) listProviders(c *gin.Context) {
 
 func (a *App) createProvider(c *gin.Context) {
 	var body struct {
-		Name       string       `json:"name"`
-		Type       string       `json:"type"`
-		Enabled    bool         `json:"enabled"`
-		Weight     int          `json:"weight"`
-		DailyLimit int          `json:"daily_limit"`
+		Name       string        `json:"name"`
+		Type       string        `json:"type"`
+		Enabled    bool          `json:"enabled"`
+		Weight     int           `json:"weight"`
+		DailyLimit int           `json:"daily_limit"`
 		Tencent    TencentConfig `json:"tencent_config"`
-		SMTP       SMTPConfig   `json:"smtp_config"`
+		SMTP       SMTPConfig    `json:"smtp_config"`
+		Resend     ResendConfig  `json:"resend_config"`
+		Brevo      BrevoConfig   `json:"brevo_config"`
 	}
 	if err := c.BindJSON(&body); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
@@ -52,8 +51,8 @@ func (a *App) createProvider(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "名称不能为空"})
 		return
 	}
-	if body.Type != "tencent" && body.Type != "smtp" {
-		c.JSON(400, gin.H{"error": "上游类型必须是 tencent 或 smtp"})
+	if body.Type != "tencent" && body.Type != "smtp" && body.Type != "resend" && body.Type != "brevo" {
+		c.JSON(400, gin.H{"error": "上游类型必须是 tencent、smtp、resend 或 brevo"})
 		return
 	}
 	res, err := a.db.Exec(`insert into upstream_providers(name,type,enabled,weight,daily_limit,created_at,updated_at) values(?,?,?,?,?,?,?)`, body.Name, body.Type, boolInt(body.Enabled), body.Weight, body.DailyLimit, now(), now())
@@ -62,7 +61,7 @@ func (a *App) createProvider(c *gin.Context) {
 		return
 	}
 	id, _ := res.LastInsertId()
-	if err := a.saveProviderConfig(id, body.Type, body.Tencent, body.SMTP); err != nil {
+	if err := a.saveProviderConfig(id, body.Type, body.Tencent, body.SMTP, body.Resend, body.Brevo); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
@@ -154,50 +153,6 @@ func (a *App) putUpstreamDispatchModeAPI(c *gin.Context) {
 		return
 	}
 	if err := a.setUpstreamDispatchMode(body.Mode); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, gin.H{"ok": true})
-}
-
-func (a *App) getTencentConfig(c *gin.Context) {
-	cfg, err := a.loadTencentConfig(c.Param("id"))
-	if err != nil {
-		c.JSON(404, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, cfg)
-}
-
-func (a *App) putTencentConfig(c *gin.Context) {
-	var cfg TencentConfig
-	if err := c.BindJSON(&cfg); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-	if err := a.saveTencentConfig(c.Param("id"), cfg); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, gin.H{"ok": true})
-}
-
-func (a *App) getSMTPConfig(c *gin.Context) {
-	cfg, err := a.loadSMTPConfig(c.Param("id"))
-	if err != nil {
-		c.JSON(404, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, cfg)
-}
-
-func (a *App) putSMTPConfig(c *gin.Context) {
-	var cfg SMTPConfig
-	if err := c.BindJSON(&cfg); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-	if err := a.saveSMTPConfig(c.Param("id"), cfg); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
@@ -363,163 +318,10 @@ func (a *App) syncProviderTemplates(c *gin.Context) {
 	c.JSON(200, gin.H{"ok": true, "count": count})
 }
 
-func (a *App) loadProviderDetail(providerID string) (ProviderDetail, error) {
-	var detail ProviderDetail
-	rows, err := a.db.Query(`select id, name, type, enabled, weight, daily_limit, created_at, updated_at from upstream_providers where id=?`, providerID)
-	if err != nil {
-		return detail, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return detail, fmt.Errorf("上游不存在")
-	}
-	var enabled int
-	if err := rows.Scan(&detail.ID, &detail.Name, &detail.Type, &enabled, &detail.Weight, &detail.DailyLimit, &detail.CreatedAt, &detail.UpdatedAt); err != nil {
-		return detail, err
-	}
-	detail.Enabled = enabled == 1
-	if cfg, err := a.loadTencentConfig(providerID); err == nil {
-		detail.TencentConfig = cfg
-	}
-	if cfg, err := a.loadSMTPConfig(providerID); err == nil {
-		detail.SMTPConfig = cfg
-	}
-	rules, _ := a.listRulesForProvider(providerID)
-	detail.Rules = rules
-	templates, _ := a.listTemplatesForProvider(providerID)
-	detail.Templates = templates
-	return detail, nil
-}
-
-func (a *App) listRulesForProvider(providerID string) ([]ProviderRule, error) {
-	rows, err := a.db.Query(`select id, provider_id, name, enabled, priority, script, created_at, updated_at from provider_rules where provider_id=? order by priority asc, id asc`, providerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ProviderRule{}
-	for rows.Next() {
-		var item ProviderRule
-		var enabled int
-		_ = rows.Scan(&item.ID, &item.ProviderID, &item.Name, &enabled, &item.Priority, &item.Script, &item.CreatedAt, &item.UpdatedAt)
-		item.Enabled = enabled == 1
-		items = append(items, item)
-	}
-	return items, nil
-}
-
-func (a *App) listTemplatesForProvider(providerID string) ([]ProviderTemplate, error) {
-	rows, err := a.db.Query(`select id, provider_id, name, status, variables, html, text, updated_at from provider_templates where provider_id=? order by id`, providerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ProviderTemplate{}
-	for rows.Next() {
-		var item ProviderTemplate
-		var vars string
-		_ = rows.Scan(&item.ID, &item.ProviderID, &item.Name, &item.Status, &vars, &item.HTML, &item.Text, &item.UpdatedAt)
-		item.Variables = jsonRawArray(vars)
-		items = append(items, item)
-	}
-	return items, nil
-}
-
-func (a *App) saveProviderConfig(providerID int64, providerType string, tencentCfg TencentConfig, smtpCfg SMTPConfig) error {
-	switch providerType {
-	case "tencent":
-		_, err := a.db.Exec(`insert into provider_tencent_config(provider_id,secret_id,secret_key,region,from_address,reply_to,trigger_type) values(?,?,?,?,?,?,?) on conflict(provider_id) do update set secret_id=excluded.secret_id, secret_key=excluded.secret_key, region=excluded.region, from_address=excluded.from_address, reply_to=excluded.reply_to, trigger_type=excluded.trigger_type`, providerID, tencentCfg.SecretID, tencentCfg.SecretKey, firstNonEmpty(tencentCfg.Region, "ap-guangzhou"), tencentCfg.FromAddress, tencentCfg.ReplyTo, firstNonEmpty(tencentCfg.TriggerType, "1"))
-		return err
-	case "smtp":
-		_, err := a.db.Exec(`insert into provider_smtp_config(provider_id,host,port,username,password,from_address,reply_to) values(?,?,?,?,?,?,?) on conflict(provider_id) do update set host=excluded.host, port=excluded.port, username=excluded.username, password=excluded.password, from_address=excluded.from_address, reply_to=excluded.reply_to`, providerID, smtpCfg.Host, smtpCfg.Port, smtpCfg.Username, smtpCfg.Password, smtpCfg.FromAddress, smtpCfg.ReplyTo)
-		return err
-	default:
-		return fmt.Errorf("未知的上游类型")
-	}
-}
-
-func (a *App) saveTencentConfig(providerID string, cfg TencentConfig) error {
-	typeName, err := a.providerType(providerID)
-	if err != nil {
-		return err
-	}
-	if typeName != "tencent" {
-		return fmt.Errorf("该上游不是腾讯云 SES")
-	}
-	_, err = a.db.Exec(`insert into provider_tencent_config(provider_id,secret_id,secret_key,region,from_address,reply_to,trigger_type) values(?,?,?,?,?,?,?) on conflict(provider_id) do update set secret_id=excluded.secret_id, secret_key=excluded.secret_key, region=excluded.region, from_address=excluded.from_address, reply_to=excluded.reply_to, trigger_type=excluded.trigger_type`, providerID, cfg.SecretID, cfg.SecretKey, firstNonEmpty(cfg.Region, "ap-guangzhou"), cfg.FromAddress, cfg.ReplyTo, firstNonEmpty(cfg.TriggerType, "1"))
-	return err
-}
-
-func (a *App) saveSMTPConfig(providerID string, cfg SMTPConfig) error {
-	typeName, err := a.providerType(providerID)
-	if err != nil {
-		return err
-	}
-	if typeName != "smtp" {
-		return fmt.Errorf("该上游不是 SMTP")
-	}
-	if strings.TrimSpace(cfg.Password) == "" {
-		_, err = a.db.Exec(`insert into provider_smtp_config(provider_id,host,port,username,password,from_address,reply_to) values(?,?,?,?,?,?,?) on conflict(provider_id) do update set host=excluded.host, port=excluded.port, username=excluded.username, from_address=excluded.from_address, reply_to=excluded.reply_to`, providerID, cfg.Host, cfg.Port, cfg.Username, "", cfg.FromAddress, cfg.ReplyTo)
-		return err
-	}
-	_, err = a.db.Exec(`insert into provider_smtp_config(provider_id,host,port,username,password,from_address,reply_to) values(?,?,?,?,?,?,?) on conflict(provider_id) do update set host=excluded.host, port=excluded.port, username=excluded.username, password=excluded.password, from_address=excluded.from_address, reply_to=excluded.reply_to`, providerID, cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.FromAddress, cfg.ReplyTo)
-	return err
-}
-
-func (a *App) loadTencentConfig(providerID string) (TencentConfig, error) {
-	var cfg TencentConfig
-	err := a.db.QueryRow(`select secret_id, secret_key, region, from_address, reply_to, trigger_type from provider_tencent_config where provider_id=?`, providerID).Scan(&cfg.SecretID, &cfg.SecretKey, &cfg.Region, &cfg.FromAddress, &cfg.ReplyTo, &cfg.TriggerType)
-	return cfg, err
-}
-
-func (a *App) loadSMTPConfig(providerID string) (SMTPConfig, error) {
-	var cfg SMTPConfig
-	err := a.db.QueryRow(`select host, port, username, password, from_address, reply_to from provider_smtp_config where provider_id=?`, providerID).Scan(&cfg.Host, &cfg.Port, &cfg.Username, &cfg.Password, &cfg.FromAddress, &cfg.ReplyTo)
-	return cfg, err
-}
-
 func (a *App) providerType(providerID string) (string, error) {
 	var typ string
 	if err := a.db.QueryRow(`select type from upstream_providers where id=?`, providerID).Scan(&typ); err != nil {
 		return "", err
 	}
 	return typ, nil
-}
-
-func (a *App) validateTemplateVars(providerID uint64, templateID uint64, variables map[string]string) error {
-	var raw string
-	err := a.db.QueryRow(`select variables from provider_templates where id=? and provider_id=?`, templateID, providerID).Scan(&raw)
-	if err != nil {
-		return fmt.Errorf("模板 %d 不在缓存中，请先同步模板列表", templateID)
-	}
-	var required []string
-	_ = json.Unmarshal([]byte(raw), &required)
-	var missing []string
-	for _, key := range required {
-		if strings.TrimSpace(variables[key]) == "" {
-			missing = append(missing, key)
-		}
-	}
-	if len(missing) > 0 {
-		return fmt.Errorf("模板变量未填满: %s", strings.Join(missing, ", "))
-	}
-	return nil
-}
-
-func (a *App) tencentClient(cfg TencentConfig) (*ses.Client, error) {
-	secretID := strings.TrimSpace(cfg.SecretID)
-	secretKey := strings.TrimSpace(cfg.SecretKey)
-	region := firstNonEmpty(strings.TrimSpace(cfg.Region), "ap-guangzhou")
-	if secretID == "" || secretKey == "" {
-		return nil, fmt.Errorf("腾讯云 SecretId / SecretKey 未配置")
-	}
-	return newTencentClient(secretID, secretKey, region)
-}
-
-func newTencentClient(secretID, secretKey, region string) (*ses.Client, error) {
-	cred := common.NewCredential(secretID, secretKey)
-	cpf := profile.NewClientProfile()
-	cpf.SignMethod = "TC3-HMAC-SHA256"
-	cpf.HttpProfile.Endpoint = fmt.Sprintf("ses.%s.tencentcloudapi.com", region)
-	return ses.NewClient(cred, region, cpf)
 }

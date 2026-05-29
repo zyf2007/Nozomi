@@ -25,11 +25,11 @@ func (b *smtpBackend) NewSession(c *smtp.Conn) (smtp.Session, error) {
 }
 
 type smtpSession struct {
-	app        *App
-	auth       bool
-	accountID  int64
-	from       string
-	to         []string
+	app       *App
+	auth      bool
+	accountID int64
+	from      string
+	to        []string
 }
 
 func (s *smtpSession) AuthMechanisms() []string { return []string{sasl.Plain} }

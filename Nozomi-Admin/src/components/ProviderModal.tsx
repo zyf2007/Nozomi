@@ -55,6 +55,17 @@ export function ProviderModal({ provider, form, open, onClose, onSaved, onSyncTe
               from_address: values.from_address || '',
               reply_to: values.reply_to || '',
             },
+            resend_config: {
+              api_key: values.api_key || '',
+              from_address: values.from_address || '',
+              reply_to: values.reply_to || '',
+            },
+            brevo_config: {
+              api_key: values.api_key || '',
+              from_address: values.from_address || '',
+              from_name: values.from_name || 'Nozomi',
+              reply_to: values.reply_to || '',
+            },
           }
           if (provider) {
               await requestJson(`/api/providers/${provider.id}`, {
@@ -68,8 +79,12 @@ export function ProviderModal({ provider, form, open, onClose, onSaved, onSyncTe
               })
             if (payload.type === 'tencent') {
               await requestJson(`/api/providers/${provider.id}/tencent`, { method: 'PUT', body: JSON.stringify(payload.tencent_config) })
-            } else {
+            } else if (payload.type === 'smtp') {
               await requestJson(`/api/providers/${provider.id}/smtp`, { method: 'PUT', body: JSON.stringify(payload.smtp_config) })
+            } else if (payload.type === 'resend') {
+              await requestJson(`/api/providers/${provider.id}/resend`, { method: 'PUT', body: JSON.stringify(payload.resend_config) })
+            } else {
+              await requestJson(`/api/providers/${provider.id}/brevo`, { method: 'PUT', body: JSON.stringify(payload.brevo_config) })
             }
           } else {
             await requestJson('/api/providers', { method: 'POST', body: JSON.stringify(payload) })
@@ -96,6 +111,8 @@ export function ProviderModal({ provider, form, open, onClose, onSaved, onSyncTe
                           options={[
                             { label: '腾讯云 SES', value: 'tencent' },
                             { label: 'SMTP', value: 'smtp' },
+                            { label: 'Resend', value: 'resend' },
+                            { label: 'Brevo', value: 'brevo' },
                           ]}
                           disabled={!!provider}
                         />
@@ -151,7 +168,7 @@ export function ProviderModal({ provider, form, open, onClose, onSaved, onSyncTe
                         </Form.Item>
                       </Col>
                     </Row>
-                  ) : (
+                  ) : providerType === 'smtp' ? (
                     <Row gutter={16}>
                       <Col xs={24} md={8}>
                         <Form.Item name="host" label="SMTP Host" rules={[{ required: true, message: '请输入 Host' }]}>
@@ -176,6 +193,47 @@ export function ProviderModal({ provider, form, open, onClose, onSaved, onSyncTe
                       <Col xs={24}>
                         <Form.Item name="from_address" label="发信地址">
                           <Input />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24}>
+                        <Form.Item name="reply_to" label="Reply-To">
+                          <Input />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  ) : providerType === 'resend' ? (
+                    <Row gutter={16}>
+                      <Col xs={24} md={12}>
+                        <Form.Item name="api_key" label="API Key" rules={[{ required: true, message: '请输入 API Key' }]}>
+                          <Input.Password />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item name="from_address" label="发信地址" rules={[{ required: true, message: '请输入发信地址' }]}>
+                          <Input placeholder="Nozomi <noreply@example.com>" />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24}>
+                        <Form.Item name="reply_to" label="Reply-To">
+                          <Input />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  ) : (
+                    <Row gutter={16}>
+                      <Col xs={24} md={12}>
+                        <Form.Item name="api_key" label="API Key" rules={[{ required: true, message: '请输入 API Key' }]}>
+                          <Input.Password />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item name="from_name" label="发件人名称">
+                          <Input placeholder="Nozomi" />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item name="from_address" label="发信地址" rules={[{ required: true, message: '请输入发信地址' }]}>
+                          <Input placeholder="noreply@example.com" />
                         </Form.Item>
                       </Col>
                       <Col xs={24}>

@@ -10,7 +10,7 @@ export type Stats = {
   bounce_rate: number
 }
 
-export type ProviderType = 'tencent' | 'smtp'
+export type ProviderType = 'tencent' | 'smtp' | 'resend' | 'brevo'
 export type ProviderDispatchMode = 'queue' | 'round_robin'
 
 export type TencentConfig = {
@@ -28,6 +28,19 @@ export type SMTPConfig = {
   username: string
   password: string
   from_address: string
+  reply_to: string
+}
+
+export type ResendConfig = {
+  api_key: string
+  from_address: string
+  reply_to: string
+}
+
+export type BrevoConfig = {
+  api_key: string
+  from_address: string
+  from_name: string
   reply_to: string
 }
 
@@ -85,6 +98,8 @@ export type Template = {
 export type ProviderDetail = Provider & {
   tencent_config: TencentConfig
   smtp_config: SMTPConfig
+  resend_config: ResendConfig
+  brevo_config: BrevoConfig
   rules: ProviderRule[]
   templates: ProviderTemplate[]
 }
