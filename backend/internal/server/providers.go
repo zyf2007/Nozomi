@@ -3,18 +3,20 @@ package server
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	ses "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ses/v20201002"
 )
 
 func (a *App) listProviders(c *gin.Context) {
+	today := time.Now().Format("2006-01-02")
 	rows, err := a.db.Query(`
 		select p.id, p.name, p.type, p.enabled, p.weight, p.daily_limit, p.created_at, p.updated_at,
 		       coalesce(u.sent_count, 0)
 		from upstream_providers p
-		left join provider_daily_usage u on u.provider_id = p.id and u.usage_date = date('now')
-		order by p.weight desc, p.id asc`)
+		left join provider_daily_usage u on u.provider_id = p.id and u.usage_date = ?
+		order by p.weight desc, p.id asc`, today)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return

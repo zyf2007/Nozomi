@@ -4,7 +4,7 @@ Nozomi Relay 是一个基于 Go 的轻量级邮件中转服务，用于从下游
 
 由于严格的风控政策，目前大量邮件提供商已经不再支持使用 SMTP 发送邮件，而是强制使用自家的 API。但是，常见的下游应用程序（例如 Rauthy, Gitea 等）仍然只能支持 SMTP 发信。本服务支持接收 SMTP 邮件后用 JavaScript 规则提取变量（例如验证码），再调用上游模板 Sendmail 接口。  
 
-![Nozomi](https://imgoss.qijieya.cn/imgoss/59/6a19a3736aea1.avif)
+![Nozomi](https://imgoss.qijieya.cn/imgoss/59/6a19d47712378.avif)
 ## 功能
 
 - Go + Gin + SQLite 后端
