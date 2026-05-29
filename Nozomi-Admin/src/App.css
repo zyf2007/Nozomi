@@ -1,0 +1,145 @@
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #eef3f8;
+}
+
+.login-card {
+  width: min(420px, calc(100vw - 32px));
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(32, 45, 66, 0.12);
+}
+
+.login-card h3 {
+  margin-bottom: 6px;
+}
+
+.login-form {
+  margin-top: 28px;
+}
+
+.shell {
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #182433 !important;
+}
+
+.brand {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  color: #f7fafc;
+  font-size: 18px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.brand-collapsed {
+  padding: 0 16px;
+  font-size: 16px;
+}
+
+.sidebar .ant-menu {
+  background: transparent;
+  color: #fff;
+  border-inline-end: 0 !important;
+}
+
+.sidebar .ant-menu-item,
+.sidebar .ant-menu-item .anticon {
+  color: #fff !important;
+}
+
+.sidebar .ant-menu-item:hover,
+.sidebar .ant-menu-item:hover .anticon {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.sidebar .ant-menu-item-selected {
+  background: #2f7dd1 !important;
+  color: #fff !important;
+}
+
+.sidebar .ant-menu-item-selected .anticon {
+  color: #fff !important;
+}
+
+.titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 56px;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 1px solid #dde5ee;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.titlebar h4 {
+  margin: 0;
+}
+
+.content {
+  padding: 20px;
+  background: #eef3f8;
+}
+
+.ant-card {
+  border-radius: 8px;
+}
+
+.full {
+  width: 100%;
+}
+
+.code-area {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+}
+
+.json-block {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  background: #101828;
+  color: #e5edf7;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.test-output {
+  min-height: 360px;
+  max-height: 560px;
+  margin-top: 8px;
+}
+
+.modal-actions-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .titlebar {
+    padding: 0 10px;
+  }
+
+  .titlebar .ant-space:last-child .ant-btn span:not(.anticon) {
+    display: none;
+  }
+
+  .brand-collapsed {
+    padding: 0 12px;
+    font-size: 15px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+}
