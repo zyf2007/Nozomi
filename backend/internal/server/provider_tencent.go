@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"encoding/base64"
 	"strconv"
 	"strings"
 
@@ -115,6 +116,22 @@ func (a *App) sendTencent(candidate upstreamCandidate, input MailInput, result R
 	req.HeaderFrom = &from
 	req.TriggerType = &triggerType
 	req.Template = &ses.Template{TemplateID: &result.TemplateID, TemplateData: ptrStr(string(templateData))}
+	if len(input.Attachments) > 0 {
+		req.Attachments = make([]*ses.Attachment, 0, len(input.Attachments))
+		for _, attachment := range input.Attachments {
+			content, err := base64.StdEncoding.DecodeString(strings.TrimSpace(attachment.ContentBase64))
+			if err != nil {
+				return "", "", fmt.Errorf("附件 %s 编码无效", attachment.Filename)
+			}
+			filename := firstNonEmpty(strings.TrimSpace(attachment.Filename), "attachment")
+			encoded := base64.StdEncoding.EncodeToString(content)
+			fileName := filename
+			req.Attachments = append(req.Attachments, &ses.Attachment{
+				FileName: &fileName,
+				Content:  &encoded,
+			})
+		}
+	}
 	sentRaw := jsonString(map[string]any{
 		"from":          from,
 		"to":            input.To,
@@ -125,6 +142,7 @@ func (a *App) sendTencent(candidate upstreamCandidate, input MailInput, result R
 		"template_data": result.Variables,
 		"provider_type": "tencent",
 		"render_source": "腾讯云 SES 模板邮件，原文由腾讯云按模板渲染生成",
+		"attachments":   input.Attachments,
 	})
 	resp, err := client.SendEmail(req)
 	if err != nil {

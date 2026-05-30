@@ -41,6 +41,14 @@ npm run dev
 
 默认管理员账号来自 `backend/.env`，默认下游 SMTP 账号为 `rauthy / change-me`。
 
+如果你从局域网 IP 访问前端，比如 `http://192.168.31.221:5173`，需要在后端 `.env` 里把 `NOZOMI_CORS_ORIGINS` 加上对应的完整 origin，例如：
+
+```bash
+NOZOMI_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://192.168.31.221:5173
+```
+
+开发模式下，前端 `npm run dev` 仍然是通过 Vite 代理把 `/api` 转发到 `http://127.0.0.1:5000`，不是直接从浏览器打 5000。
+
 ## 规则脚本
 
 规则脚本运行在 Go 内嵌 JavaScript 引擎中，后端提供 `input`：

@@ -9,8 +9,12 @@ import (
 
 func (a *App) router() *gin.Engine {
 	r := gin.Default()
+	origins := a.settings.CORSOrigins
+	if len(origins) == 0 {
+		origins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+	}
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://127.0.0.1:5173"},
+		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type"},
 		AllowCredentials: true,

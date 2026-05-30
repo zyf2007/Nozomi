@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	stdhtml "html"
 	"strings"
@@ -98,6 +99,21 @@ func (a *App) sendBrevo(candidate upstreamCandidate, input MailInput) (string, s
 			req.To = append(req.To, brevo.SendSmtpEmailTo{Email: rcpt})
 		}
 	}
+	if len(input.Attachments) > 0 {
+		req.Attachment = make([]brevo.SendSmtpEmailAttachment, 0, len(input.Attachments))
+		for _, attachment := range input.Attachments {
+			content, err := base64.StdEncoding.DecodeString(strings.TrimSpace(attachment.ContentBase64))
+			if err != nil {
+				return "", "", fmt.Errorf("附件 %s 编码无效", attachment.Filename)
+			}
+			filename := firstNonEmpty(strings.TrimSpace(attachment.Filename), "attachment")
+			req.Attachment = append(req.Attachment, brevo.SendSmtpEmailAttachment{
+				Content: base64.StdEncoding.EncodeToString(content),
+				Name:    filename,
+				Url:     "",
+			})
+		}
+	}
 	sentRaw := jsonString(map[string]any{
 		"from":    req.Sender,
 		"to":      req.To,
@@ -105,6 +121,7 @@ func (a *App) sendBrevo(candidate upstreamCandidate, input MailInput) (string, s
 		"text":    req.TextContent,
 		"html":    req.HtmlContent,
 		"replyTo": req.ReplyTo,
+		"attachment": req.Attachment,
 	})
 
 	resp, _, err := apiClient.TransactionalEmailsApi.SendTransacEmail(ctx, req)

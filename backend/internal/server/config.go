@@ -17,6 +17,7 @@ func loadSettings() Settings {
 		SMTPAddr:      env("NOZOMI_SMTP_ADDR", "0.0.0.0:2525"),
 		DataDir:       dataDir,
 		DBPath:        dbPath,
+		CORSOrigins:   envList("NOZOMI_CORS_ORIGINS", []string{"http://localhost:5173", "http://127.0.0.1:5173"}),
 		AdminUsername: env("NOZOMI_ADMIN_USERNAME", "admin"),
 		AdminPassword: env("NOZOMI_ADMIN_PASSWORD", "change-me"),
 		SessionSecret: env("NOZOMI_SESSION_SECRET", "change-this-session-secret"),
@@ -28,4 +29,22 @@ func env(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func envList(key string, fallback []string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if v := strings.TrimSpace(part); v != "" {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		return fallback
+	}
+	return out
 }

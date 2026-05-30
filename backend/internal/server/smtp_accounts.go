@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"mime"
 	"net"
 	stdsmtp "net/smtp"
 	"strings"
@@ -76,11 +75,12 @@ func (a *App) deleteSMTPAccount(c *gin.Context) {
 
 func (a *App) testSMTPAccount(c *gin.Context) {
 	var body struct {
-		From    string   `json:"from"`
-		To      []string `json:"to"`
-		Subject string   `json:"subject"`
-		Text    string   `json:"text"`
-		HTML    string   `json:"html"`
+		From        string           `json:"from"`
+		To          []string         `json:"to"`
+		Subject     string           `json:"subject"`
+		Text        string           `json:"text"`
+		HTML        string           `json:"html"`
+		Attachments []MailAttachment `json:"attachments"`
 	}
 	if err := c.BindJSON(&body); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
@@ -103,7 +103,7 @@ func (a *App) testSMTPAccount(c *gin.Context) {
 	}
 	from := firstNonEmpty(strings.TrimSpace(body.From), "tester@nozomi-relay.local")
 	subject := firstNonEmpty(strings.TrimSpace(body.Subject), "Nozomi Relay 测试邮件")
-	raw := buildTestMessage(from, body.To, subject, body.Text, body.HTML)
+	raw := buildMimeMessage(from, body.To, subject, body.Text, body.HTML, nil, body.Attachments)
 	addr, authHost, err := a.localSMTPDialTarget()
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
@@ -126,28 +126,4 @@ func (a *App) localSMTPDialTarget() (string, string, error) {
 		host = "127.0.0.1"
 	}
 	return net.JoinHostPort(host, port), host, nil
-}
-
-func buildTestMessage(from string, to []string, subject, textBody, htmlBody string) string {
-	textBody = firstNonEmpty(textBody, "Nozomi Relay SMTP 测试邮件，验证码 123456。")
-	headers := []string{
-		"From: " + from,
-		"To: " + strings.Join(to, ", "),
-		"Subject: " + mime.QEncoding.Encode("UTF-8", subject),
-		"MIME-Version: 1.0",
-	}
-	if strings.TrimSpace(htmlBody) == "" {
-		headers = append(headers, `Content-Type: text/plain; charset="UTF-8"`)
-		return strings.Join(headers, "\r\n") + "\r\n\r\n" + textBody + "\r\n"
-	}
-	boundary := "nozomi-relay-test-boundary"
-	headers = append(headers, `Content-Type: multipart/alternative; boundary="`+boundary+`"`)
-	return strings.Join(headers, "\r\n") + "\r\n\r\n" +
-		"--" + boundary + "\r\n" +
-		`Content-Type: text/plain; charset="UTF-8"` + "\r\n\r\n" +
-		textBody + "\r\n" +
-		"--" + boundary + "\r\n" +
-		`Content-Type: text/html; charset="UTF-8"` + "\r\n\r\n" +
-		htmlBody + "\r\n" +
-		"--" + boundary + "--\r\n"
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -82,6 +83,23 @@ func (a *App) sendResend(candidate upstreamCandidate, input MailInput) (string, 
 	if htmlBody != "" {
 		req.Html = htmlBody
 	}
+	if len(input.Attachments) > 0 {
+		req.Attachments = make([]*resend.Attachment, 0, len(input.Attachments))
+		for _, attachment := range input.Attachments {
+			content, err := base64.StdEncoding.DecodeString(strings.TrimSpace(attachment.ContentBase64))
+			if err != nil {
+				return "", "", fmt.Errorf("附件 %s 编码无效", attachment.Filename)
+			}
+			filename := firstNonEmpty(strings.TrimSpace(attachment.Filename), "attachment")
+			contentType := firstNonEmpty(strings.TrimSpace(attachment.ContentType), "application/octet-stream")
+			req.Attachments = append(req.Attachments, &resend.Attachment{
+				Content:     content,
+				Filename:    filename,
+				ContentType: contentType,
+				ContentId:   strings.TrimSpace(attachment.ContentID),
+			})
+		}
+	}
 	if replyTo := strings.TrimSpace(cfg.ReplyTo); replyTo != "" {
 		req.ReplyTo = replyTo
 	}
@@ -92,6 +110,7 @@ func (a *App) sendResend(candidate upstreamCandidate, input MailInput) (string, 
 		"text":     req.Text,
 		"html":     req.Html,
 		"reply_to": req.ReplyTo,
+		"attachments": req.Attachments,
 	})
 
 	resp, err := client.Emails.SendWithContext(context.Background(), req)

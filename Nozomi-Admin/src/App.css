@@ -156,6 +156,346 @@
   justify-content: flex-end;
 }
 
+.mail-composer {
+  min-width: 0;
+}
+
+.mail-meta-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.mail-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mail-field-label {
+  flex: 0 0 72px;
+  font-size: 12px;
+  color: #667085;
+  line-height: 32px;
+  text-align: right;
+}
+
+.mail-field .ant-input {
+  flex: 1;
+}
+
+.mail-editor-shell {
+  min-height: 240px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.mail-simple-editor-shell {
+  --tt-toolbar-height: 34px;
+  --tt-theme-text: #172033;
+  position: relative;
+  display: flex;
+  min-height: 320px;
+  flex-direction: column;
+  border-color: #cfd9e6;
+}
+
+.mail-simple-editor-shell .tiptap-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  width: 100%;
+  min-height: 34px;
+  border-bottom: 1px solid #d9e2ec;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 3px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.mail-simple-toolbar {
+  scrollbar-width: none;
+}
+
+.mail-simple-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.mail-simple-toolbar .tiptap-toolbar-group {
+  flex: 0 0 auto;
+  gap: 1px;
+}
+
+.mail-simple-toolbar .tiptap-button {
+  height: 22px;
+  min-width: 22px;
+  padding: 3px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.mail-simple-toolbar .tiptap-button-icon,
+.mail-simple-toolbar .tiptap-button-icon-sub {
+  width: 12px;
+  height: 12px;
+}
+
+.mail-simple-toolbar .tiptap-button-dropdown-arrows {
+  width: 9px;
+  height: 9px;
+}
+
+.mail-simple-toolbar .tiptap-button-dropdown-small {
+  width: 8px;
+  height: 8px;
+}
+
+.mail-simple-toolbar .tiptap-button-text {
+  display: none;
+}
+
+.mail-simple-toolbar .tiptap-separator[data-orientation="vertical"] {
+  height: 18px;
+  margin: 0 1px;
+}
+
+.tiptap-dropdown-menu-content,
+.tiptap-dropdown-menu-sub-content,
+.tiptap-popover,
+.tiptap-tooltip {
+  z-index: 1200;
+}
+
+.mail-simple-editor-content {
+  display: flex;
+  flex: 1;
+  min-height: 276px;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror {
+  width: 100%;
+  min-height: 276px;
+  padding: 22px 26px 28px;
+  color: #172033;
+  font-family:
+    "Inter", "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC",
+    "Hiragino Sans GB", sans-serif;
+  font-synthesis: weight style;
+  font-size: 15px;
+  line-height: 1.75;
+  outline: none;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror strong {
+  font-weight: 700;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror em {
+  font-style: italic;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror p {
+  margin: 0 0 0.75em;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror h1,
+.mail-simple-editor-content .tiptap.ProseMirror h2,
+.mail-simple-editor-content .tiptap.ProseMirror h3,
+.mail-simple-editor-content .tiptap.ProseMirror h4,
+.mail-simple-editor-content .tiptap.ProseMirror blockquote,
+.mail-simple-editor-content .tiptap.ProseMirror ul,
+.mail-simple-editor-content .tiptap.ProseMirror ol,
+.mail-simple-editor-content .tiptap.ProseMirror pre {
+  margin: 0 0 0.75em;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror blockquote {
+  border-left: 3px solid #d0d8e4;
+  padding-left: 14px;
+  color: #475467;
+}
+
+.mail-simple-editor-content .tiptap.ProseMirror pre {
+  overflow-x: auto;
+  border-radius: 8px;
+  padding: 12px;
+  background: #101828;
+  color: #f2f4f7;
+}
+
+.mail-toolbar-row {
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid #d9e2ec;
+}
+
+.mail-toolbar {
+  gap: 8px;
+  width: 100%;
+}
+
+.mail-mode-switch {
+  margin-bottom: 8px;
+}
+
+.mail-toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #d9e2ec;
+  margin: 0 2px;
+}
+
+.mail-toolbar-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.mail-toolbar-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 999px;
+  background: #fff;
+  color: #344054;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.mail-toolbar-btn.is-active {
+  border-color: #2f7dd1;
+  background: #e8f1fb;
+  color: #1f5f9b;
+  box-shadow: inset 0 0 0 1px rgba(47, 125, 209, 0.1);
+}
+
+.mail-color-wrap {
+  position: relative;
+}
+
+.mail-color-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  width: 260px;
+  padding: 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(16, 24, 40, 0.12);
+}
+
+.mail-color-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  margin-bottom: 8px;
+  padding: 0 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  background: #fff;
+  color: #344054;
+  cursor: pointer;
+}
+
+.mail-color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+
+.mail-color-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mail-color-swatch.is-active {
+  outline: 2px solid #2f7dd1;
+  outline-offset: 1px;
+}
+
+.mail-tiptap-host {
+  min-height: 216px;
+  padding: 12px 14px;
+}
+
+.mail-tiptap-editor {
+  min-height: 216px;
+  font-size: 14px;
+  line-height: 1.75;
+  outline: none;
+}
+
+.mail-tiptap-editor p {
+  margin: 0 0 0.75em;
+}
+
+.mail-tiptap-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.mail-tiptap-editor h1,
+.mail-tiptap-editor h2,
+.mail-tiptap-editor h3,
+.mail-tiptap-editor blockquote,
+.mail-tiptap-editor ul,
+.mail-tiptap-editor ol,
+.mail-tiptap-editor pre {
+  margin: 0 0 0.75em;
+}
+
+.mail-tiptap-editor img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.mail-tiptap-editor:focus {
+  outline: none;
+}
+
+.mail-plain-shell {
+  padding: 8px;
+}
+
+.mail-plain-textarea {
+  min-height: 216px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  resize: none;
+}
+
+.mail-plain-textarea:hover,
+.mail-plain-textarea:focus {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 @media (max-width: 720px) {
   .titlebar {
     padding: 0 10px;

@@ -114,6 +114,25 @@ export type SMTPAccount = {
   updated_at: string
 }
 
+export type MailAttachment = {
+  uid: string
+  filename: string
+  content_type: string
+  content_base64: string
+  content_id: string
+  inline: boolean
+}
+
+export type SMTPTestDraft = {
+  from: string
+  to: string
+  subject: string
+  richText: boolean
+  html: string
+  text: string
+  attachments: MailAttachment[]
+}
+
 export type RuleTestResponse = {
   matched: boolean
   result?: Record<string, unknown>

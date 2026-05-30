@@ -62,7 +62,7 @@ func (a *App) sendSMTPUpstream(candidate upstreamCandidate, input MailInput) (st
 	}
 	hostPort := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	from := firstNonEmpty(strings.TrimSpace(cfg.FromAddress), input.From)
-	raw := buildMailMessage(from, input.To, input.Subject, input.Text, input.HTML, input.Headers)
+	raw := buildMimeMessage(from, input.To, input.Subject, input.Text, input.HTML, input.Headers, input.Attachments)
 	var auth smtp.Auth
 	if strings.TrimSpace(cfg.Username) != "" {
 		auth = smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)

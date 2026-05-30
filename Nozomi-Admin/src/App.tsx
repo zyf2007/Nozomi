@@ -17,6 +17,7 @@ import type {
   ProviderDispatchMode,
   ProviderDetail,
   ProviderRule,
+  SMTPTestDraft,
   RelayMessage,
   RuleTestResponse,
   SMTPAccount,
@@ -45,6 +46,20 @@ function tabFromLocation() {
   return tabByPath[window.location.pathname] || 'dashboard'
 }
 
+function prepareMailHtmlForSend(html: string, attachments: SMTPTestDraft['attachments']) {
+  if (!html.trim()) return html
+  return attachments.reduce((nextHtml, attachment) => {
+    if (!attachment.inline || !attachment.content_id || !attachment.content_base64) {
+      return nextHtml
+    }
+    const escapedBase64 = attachment.content_base64.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return nextHtml.replace(
+      new RegExp(`src=(["'])data:${attachment.content_type};base64,${escapedBase64}\\1`, 'g'),
+      `src="cid:${attachment.content_id}"`,
+    )
+  }, html)
+}
+
 function App() {
   const [session, setSession] = useState<Session>({ authenticated: false, username: '' })
   const [loading, setLoading] = useState(true)
@@ -69,12 +84,20 @@ function App() {
   const [smtpTestOpen, setSmtpTestOpen] = useState(false)
   const [smtpTestAccount, setSmtpTestAccount] = useState<SMTPAccount | null>(null)
   const [smtpTestResult, setSmtpTestResult] = useState<Record<string, unknown> | null>(null)
+  const [smtpTestDraft, setSmtpTestDraft] = useState<SMTPTestDraft>({
+    from: '',
+    to: '',
+    subject: '',
+    richText: true,
+    html: '',
+    text: '',
+    attachments: [],
+  })
   const [testing, setTesting] = useState(false)
   const [providerForm] = Form.useForm()
   const [loginForm] = Form.useForm()
   const [ruleForm] = Form.useForm()
   const [accountForm] = Form.useForm()
-  const [smtpTestForm] = Form.useForm()
   const [ruleTestForm] = Form.useForm()
 
   const refresh = useCallback(async () => {
@@ -248,12 +271,14 @@ function App() {
   const openSMTPTest = (account: SMTPAccount) => {
     setSmtpTestAccount(account)
     setSmtpTestResult(null)
-    smtpTestForm.setFieldsValue({
+    setSmtpTestDraft({
       from: 'tester@nozomi-relay.local',
       to: 'user@example.com',
       subject: '登录验证码',
+      richText: true,
       text: '你的登录验证码是 123456，5 分钟内有效。',
-      html: '',
+      html: '<p>你的登录验证码是 <strong>123456</strong>，5 分钟内有效。</p>',
+      attachments: [],
     })
     setSmtpTestOpen(true)
   }
@@ -285,12 +310,18 @@ function App() {
 
   const submitSMTPTest = async () => {
     if (!smtpTestAccount) return
-    const values = await smtpTestForm.validateFields()
     setTesting(true)
     try {
+      const payload = smtpTestDraft.richText
+        ? {
+            ...smtpTestDraft,
+            html: prepareMailHtmlForSend(smtpTestDraft.html, smtpTestDraft.attachments),
+            to: splitRecipients(smtpTestDraft.to),
+          }
+        : { ...smtpTestDraft, html: '', to: splitRecipients(smtpTestDraft.to) }
       const result = await requestJson<Record<string, unknown>>(`/api/smtp-accounts/${smtpTestAccount.id}/test`, {
         method: 'POST',
-        body: JSON.stringify({ ...values, to: splitRecipients(values.to) }),
+        body: JSON.stringify(payload),
       })
       setSmtpTestResult(result)
       message.success('测试邮件已发送')
@@ -440,12 +471,13 @@ function App() {
       />
       <SMTPTestModal
         account={smtpTestAccount}
-        form={smtpTestForm}
+        draft={smtpTestDraft}
         open={smtpTestOpen}
         result={smtpTestResult}
         testing={testing}
         onClose={() => setSmtpTestOpen(false)}
         onSubmit={submitSMTPTest}
+        onChange={setSmtpTestDraft}
       />
     </AdminShell>
   )

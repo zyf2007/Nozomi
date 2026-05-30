@@ -7,6 +7,7 @@ type Settings struct {
 	SMTPAddr      string
 	DataDir       string
 	DBPath        string
+	CORSOrigins   []string
 	AdminUsername string
 	AdminPassword string
 	SessionSecret string
@@ -18,13 +19,22 @@ type App struct {
 }
 
 type MailInput struct {
-	From    string            `json:"from"`
-	To      []string          `json:"to"`
-	Subject string            `json:"subject"`
-	Text    string            `json:"text"`
-	HTML    string            `json:"html"`
-	Raw     string            `json:"raw"`
-	Headers map[string]string `json:"headers"`
+	From        string            `json:"from"`
+	To          []string          `json:"to"`
+	Subject     string            `json:"subject"`
+	Text        string            `json:"text"`
+	HTML        string            `json:"html"`
+	Raw         string            `json:"raw"`
+	Headers     map[string]string `json:"headers"`
+	Attachments []MailAttachment  `json:"attachments"`
+}
+
+type MailAttachment struct {
+	Filename      string `json:"filename"`
+	ContentType   string `json:"content_type"`
+	ContentBase64 string `json:"content_base64"`
+	ContentID     string `json:"content_id"`
+	Inline        bool   `json:"inline"`
 }
 
 type RuleResult struct {

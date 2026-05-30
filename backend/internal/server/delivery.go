@@ -1,9 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"mime"
+	"mime/quotedprintable"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -152,6 +155,9 @@ func (a *App) nextRoundRobinIndex(downstreamID int64, size int) int {
 func (a *App) sendThroughProvider(candidate upstreamCandidate, input MailInput) (int64, int64, string, string, map[string]string, string, error) {
 	switch candidate.Type {
 	case "tencent":
+		if len(input.Attachments) > 0 {
+			return 0, 0, "", "", nil, "", fmt.Errorf("没有规则匹配这封邮件，请在该上游的规则列表中新增规则")
+		}
 		result, ruleID, err := a.matchProviderRule(candidate, input)
 		if err != nil {
 			return 0, 0, "", "", nil, "", err
@@ -217,34 +223,149 @@ func (a *App) matchProviderRule(candidate upstreamCandidate, input MailInput) (R
 }
 
 func buildMailMessage(from string, to []string, subject, textBody, htmlBody string, headers map[string]string) string {
+	return buildMimeMessage(from, to, subject, textBody, htmlBody, headers, nil)
+}
+
+func buildMimeMessage(from string, to []string, subject, textBody, htmlBody string, headers map[string]string, attachments []MailAttachment) string {
 	textBody = firstNonEmpty(textBody, "Nozomi Relay 转发邮件")
-	lines := []string{
-		"From: " + from,
-		"To: " + strings.Join(to, ", "),
-		"Subject: " + mimeQEncode(subject),
-		"MIME-Version: 1.0",
-	}
+	var buf bytes.Buffer
+	buf.WriteString("From: ")
+	buf.WriteString(from)
+	buf.WriteString("\r\n")
+	buf.WriteString("To: ")
+	buf.WriteString(strings.Join(to, ", "))
+	buf.WriteString("\r\n")
+	buf.WriteString("Subject: ")
+	buf.WriteString(mimeQEncode(subject))
+	buf.WriteString("\r\n")
+	buf.WriteString("MIME-Version: 1.0\r\n")
 	for k, v := range headers {
 		switch strings.ToLower(k) {
 		case "from", "to", "subject", "mime-version", "content-type":
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("%s: %s", k, v))
+		buf.WriteString(k)
+		buf.WriteString(": ")
+		buf.WriteString(v)
+		buf.WriteString("\r\n")
 	}
-	if strings.TrimSpace(htmlBody) == "" {
-		lines = append(lines, `Content-Type: text/plain; charset="UTF-8"`)
-		return strings.Join(lines, "\r\n") + "\r\n\r\n" + textBody + "\r\n"
+
+	hasAttachments := len(attachments) > 0
+	hasHTML := strings.TrimSpace(htmlBody) != ""
+	if !hasAttachments && !hasHTML {
+		writeTextPart(&buf, "text/plain", textBody)
+		return buf.String()
 	}
-	boundary := fmt.Sprintf("nozomi-%d", time.Now().UnixNano())
-	lines = append(lines, `Content-Type: multipart/alternative; boundary="`+boundary+`"`)
-	return strings.Join(lines, "\r\n") + "\r\n\r\n" +
-		"--" + boundary + "\r\n" +
-		`Content-Type: text/plain; charset="UTF-8"` + "\r\n\r\n" +
-		textBody + "\r\n" +
-		"--" + boundary + "\r\n" +
-		`Content-Type: text/html; charset="UTF-8"` + "\r\n\r\n" +
-		htmlBody + "\r\n" +
-		"--" + boundary + "--\r\n"
+
+	rootBoundary := fmt.Sprintf("nozomi-root-%d", time.Now().UnixNano())
+	if hasAttachments {
+		buf.WriteString(`Content-Type: multipart/mixed; boundary="`)
+		buf.WriteString(rootBoundary)
+		buf.WriteString(`"` + "\r\n\r\n")
+		buf.WriteString("--")
+		buf.WriteString(rootBoundary)
+		buf.WriteString("\r\n")
+		if strings.TrimSpace(htmlBody) == "" {
+			writeTextPart(&buf, "text/plain", textBody)
+		} else {
+			altBoundary := fmt.Sprintf("nozomi-alt-%d", time.Now().UnixNano())
+			buf.WriteString(`Content-Type: multipart/alternative; boundary="`)
+			buf.WriteString(altBoundary)
+			buf.WriteString(`"` + "\r\n\r\n")
+			buf.WriteString("--")
+			buf.WriteString(altBoundary)
+			buf.WriteString("\r\n")
+			writeTextPart(&buf, "text/plain", textBody)
+			buf.WriteString("--")
+			buf.WriteString(altBoundary)
+			buf.WriteString("\r\n")
+			writeTextPart(&buf, "text/html", htmlBody)
+			buf.WriteString("--")
+			buf.WriteString(altBoundary)
+			buf.WriteString("--\r\n")
+		}
+		for _, attachment := range attachments {
+			buf.WriteString("\r\n")
+			writeAttachmentPart(&buf, rootBoundary, attachment)
+		}
+		buf.WriteString("--")
+		buf.WriteString(rootBoundary)
+		buf.WriteString("--\r\n")
+		return buf.String()
+	}
+
+	buf.WriteString(`Content-Type: multipart/alternative; boundary="`)
+	buf.WriteString(rootBoundary)
+	buf.WriteString(`"` + "\r\n\r\n")
+	buf.WriteString("--")
+	buf.WriteString(rootBoundary)
+	buf.WriteString("\r\n")
+	writeTextPart(&buf, "text/plain", textBody)
+	buf.WriteString("--")
+	buf.WriteString(rootBoundary)
+	buf.WriteString("\r\n")
+	writeTextPart(&buf, "text/html", htmlBody)
+	buf.WriteString("--")
+	buf.WriteString(rootBoundary)
+	buf.WriteString("--\r\n")
+	return buf.String()
+}
+
+func writeTextPart(buf *bytes.Buffer, contentType, body string) {
+	buf.WriteString("Content-Type: ")
+	buf.WriteString(contentType)
+	buf.WriteString(`; charset="UTF-8"` + "\r\n")
+	buf.WriteString("Content-Transfer-Encoding: quoted-printable\r\n\r\n")
+	qp := quotedprintable.NewWriter(buf)
+	_, _ = qp.Write([]byte(body))
+	_ = qp.Close()
+	buf.WriteString("\r\n")
+}
+
+func writeAttachmentPart(buf *bytes.Buffer, boundary string, attachment MailAttachment) {
+	buf.WriteString("--")
+	buf.WriteString(boundary)
+	buf.WriteString("\r\n")
+	filename := firstNonEmpty(strings.TrimSpace(attachment.Filename), "attachment")
+	contentType := firstNonEmpty(strings.TrimSpace(attachment.ContentType), "application/octet-stream")
+	disposition := "attachment"
+	if attachment.Inline {
+		disposition = "inline"
+	}
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Type", contentType+`; name="`+filename+`"`)
+	h.Set("Content-Transfer-Encoding", "base64")
+	h.Set("Content-Disposition", disposition+`; filename="`+filename+`"`)
+	if strings.TrimSpace(attachment.ContentID) != "" {
+		h.Set("Content-ID", "<"+strings.TrimSpace(attachment.ContentID)+">")
+	}
+	for k, vals := range h {
+		for _, v := range vals {
+			buf.WriteString(k)
+			buf.WriteString(": ")
+			buf.WriteString(v)
+			buf.WriteString("\r\n")
+		}
+	}
+	buf.WriteString("\r\n")
+	buf.WriteString(chunkBase64Lines(attachment.ContentBase64))
+	buf.WriteString("\r\n")
+}
+
+func chunkBase64Lines(s string) string {
+	s = strings.ReplaceAll(strings.TrimSpace(s), "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	if len(s) <= 76 {
+		return s
+	}
+	var out strings.Builder
+	for len(s) > 76 {
+		out.WriteString(s[:76])
+		out.WriteString("\r\n")
+		s = s[76:]
+	}
+	out.WriteString(s)
+	return out.String()
 }
 
 func mimeQEncode(s string) string {

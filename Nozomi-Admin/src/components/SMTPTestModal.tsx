@@ -1,50 +1,38 @@
-import { Col, Form, Input, Modal, Row, Typography } from 'antd'
-import type { FormInstance } from 'antd'
-import type { SMTPAccount } from '../types'
+import { Col, Modal, Row, Typography } from 'antd'
+import type { Dispatch, SetStateAction } from 'react'
+import type { SMTPAccount, SMTPTestDraft } from '../types'
+import { MailComposer } from './MailComposer'
 
 type Props = {
   account: SMTPAccount | null
-  form: FormInstance
+  draft: SMTPTestDraft
   open: boolean
   result: Record<string, unknown> | null
   testing: boolean
   onClose: () => void
   onSubmit: () => void
+  onChange: Dispatch<SetStateAction<SMTPTestDraft>>
 }
 
-export function SMTPTestModal({ account, form, open, result, testing, onClose, onSubmit }: Props) {
+export function SMTPTestModal({ account, draft, open, result, testing, onClose, onSubmit, onChange }: Props) {
   return (
     <Modal
       title={`测试 SMTP 账号${account ? ` · ${account.username}` : ''}`}
       open={open}
-      width={920}
+      width={1200}
+      style={{ top: 20 }}
       confirmLoading={testing}
       okText="发送测试"
       cancelText="关闭"
       onCancel={onClose}
       onOk={onSubmit}
+      destroyOnClose
     >
       <Row gutter={16}>
-        <Col xs={24} md={12}>
-          <Form form={form} layout="vertical">
-            <Form.Item name="from" label="下游 MAIL FROM" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="to" label="下游 RCPT TO" rules={[{ required: true }]}>
-              <Input placeholder="多个收件人用逗号、空格或换行分隔" />
-            </Form.Item>
-            <Form.Item name="subject" label="Subject" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="text" label="Text Body">
-              <Input.TextArea rows={6} />
-            </Form.Item>
-            <Form.Item name="html" label="HTML Body">
-              <Input.TextArea rows={6} />
-            </Form.Item>
-          </Form>
+        <Col xs={24} lg={15}>
+          <MailComposer value={draft} onChange={onChange} />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} lg={9}>
           <Typography.Text strong>链路结果</Typography.Text>
           <pre className="json-block test-output">{JSON.stringify(result || {}, null, 2)}</pre>
         </Col>

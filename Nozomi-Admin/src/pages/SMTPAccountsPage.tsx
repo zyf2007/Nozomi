@@ -64,7 +64,7 @@ export function SMTPAccountsPage({ accounts, providers, onCreate, onEdit, onDele
                   删除
                 </Button>
                 <Button size="small" icon={<SendOutlined />} onClick={() => onTest(record)}>
-                  测试
+                  发送邮件
                 </Button>
               </Space>
             ),
