@@ -27,11 +27,29 @@ import type {
 import { splitRecipients } from './utils/format'
 import './App.css'
 
+const pathByTab: Record<string, string> = {
+  dashboard: '/',
+  settings: '/settings',
+  smtp: '/smtp',
+  logs: '/logs',
+}
+
+const tabByPath: Record<string, string> = {
+  '/': 'dashboard',
+  '/settings': 'settings',
+  '/smtp': 'smtp',
+  '/logs': 'logs',
+}
+
+function tabFromLocation() {
+  return tabByPath[window.location.pathname] || 'dashboard'
+}
+
 function App() {
   const [session, setSession] = useState<Session>({ authenticated: false, username: '' })
   const [loading, setLoading] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
-  const [activeKey, setActiveKey] = useState('dashboard')
+  const [activeKey, setActiveKey] = useState(tabFromLocation)
   const [stats, setStats] = useState<Stats | null>(null)
   const [providers, setProviders] = useState<Provider[]>([])
   const [dispatchMode, setDispatchMode] = useState<ProviderDispatchMode>('queue')
@@ -95,6 +113,7 @@ function App() {
         enabled: detail.enabled,
         weight: detail.weight,
         daily_limit: detail.daily_limit,
+        quota_timezone: detail.quota_timezone || 'Asia/Shanghai',
         secret_id: detail.tencent_config.secret_id,
         secret_key: detail.tencent_config.secret_key,
         region: detail.tencent_config.region,
@@ -116,6 +135,12 @@ function App() {
     requestJson<Session>('/api/auth/session')
       .then(setSession)
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    const onPopState = () => setActiveKey(tabFromLocation())
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
   useEffect(() => {
@@ -148,6 +173,7 @@ function App() {
       enabled: true,
       weight: 100,
       daily_limit: 0,
+      quota_timezone: 'Asia/Shanghai',
       region: 'ap-guangzhou',
       trigger_type: '1',
       port: 25,
@@ -167,6 +193,14 @@ function App() {
   const closeProvider = () => {
     setProviderOpen(false)
     setProviderDetail(null)
+  }
+
+  const changeActiveKey = (key: string) => {
+    const path = pathByTab[key] || '/'
+    setActiveKey(key)
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path)
+    }
   }
 
   const saveProviderConfig = async () => {
@@ -335,7 +369,7 @@ function App() {
     <AdminShell
       activeKey={activeKey}
       collapsed={collapsed}
-      onActiveKeyChange={setActiveKey}
+      onActiveKeyChange={changeActiveKey}
       onCollapsedChange={setCollapsed}
       onLogout={logout}
       onRefresh={refresh}

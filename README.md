@@ -4,14 +4,15 @@ Nozomi Relay 是一个基于 Go 的轻量级邮件中转服务，用于从下游
 
 由于严格的风控政策，目前大量邮件提供商已经不再支持使用 SMTP 发送邮件，而是强制使用自家的 API。但是，常见的下游应用程序（例如 Rauthy, Gitea 等）仍然只能支持 SMTP 发信。本服务支持接收 SMTP 邮件后用 JavaScript 规则提取变量（例如验证码），再调用上游模板 Sendmail 接口。  
 
-![Nozomi](https://imgoss.qijieya.cn/imgoss/59/6a19d47712378.avif)
+![Nozomi](https://imgoss.qijieya.cn/imgoss/59/6a1a6f8365bd2.png)
 ## 功能
 
 - Go + Gin + SQLite 后端
 - 内置 SMTP relay，支持配置多个下游 SMTP 账号
-- 腾讯云 SES SecretId / SecretKey / Region / 发信地址配置
+- 腾讯云 SES / Resend / Brevo API 支持
 - 同步腾讯云模板列表与模板变量
 - JavaScript 规则脚本提取下游邮件内容并映射模板变量
+- 支持按时区设置不同邮件提供商的每日额度重置时间，避免超额扣费
 - 发送历史、错误日志、腾讯云回调事件记录
 - Ant Design 管理面板，含统计、配置、模板、规则、账号、日志
 

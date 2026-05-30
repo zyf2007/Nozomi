@@ -99,6 +99,12 @@
   width: 100%;
 }
 
+.quota-reset-hint {
+  margin: -4px 0 12px;
+  color: #667085;
+  font-size: 13px;
+}
+
 .code-area {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
@@ -117,6 +123,31 @@
 .test-output {
   min-height: 360px;
   max-height: 560px;
+  margin-top: 8px;
+}
+
+.rule-test-block {
+  min-height: 220px;
+  max-height: 320px;
+  margin-top: 8px;
+}
+
+.template-source-block {
+  min-height: 180px;
+  max-height: 360px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+
+.log-raw-block {
+  min-height: 180px;
+  max-height: 420px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+
+.log-detail-block {
+  max-height: 260px;
   margin-top: 8px;
 }
 

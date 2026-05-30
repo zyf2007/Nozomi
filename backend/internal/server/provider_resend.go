@@ -50,24 +50,24 @@ func (a *App) loadResendConfig(providerID string) (ResendConfig, error) {
 	return cfg, err
 }
 
-func (a *App) sendResend(candidate upstreamCandidate, input MailInput) (string, error) {
+func (a *App) sendResend(candidate upstreamCandidate, input MailInput) (string, string, error) {
 	cfg := candidate.ResendConfig
 	apiKey := strings.TrimSpace(cfg.APIKey)
 	if apiKey == "" {
-		return "", fmt.Errorf("Resend API key 未配置")
+		return "", "", fmt.Errorf("Resend API key 未配置")
 	}
 	from := firstNonEmpty(strings.TrimSpace(cfg.FromAddress), strings.TrimSpace(input.From))
 	if from == "" {
-		return "", fmt.Errorf("Resend 发信地址未配置")
+		return "", "", fmt.Errorf("Resend 发信地址未配置")
 	}
 	if len(input.To) == 0 {
-		return "", fmt.Errorf("收件人为空")
+		return "", "", fmt.Errorf("收件人为空")
 	}
 	subject := firstNonEmpty(strings.TrimSpace(input.Subject), "Nozomi Relay")
 	textBody := strings.TrimSpace(input.Text)
 	htmlBody := strings.TrimSpace(input.HTML)
 	if textBody == "" && htmlBody == "" {
-		return "", fmt.Errorf("邮件正文为空")
+		return "", "", fmt.Errorf("邮件正文为空")
 	}
 
 	client := resend.NewClient(apiKey)
@@ -85,13 +85,21 @@ func (a *App) sendResend(candidate upstreamCandidate, input MailInput) (string, 
 	if replyTo := strings.TrimSpace(cfg.ReplyTo); replyTo != "" {
 		req.ReplyTo = replyTo
 	}
+	sentRaw := jsonString(map[string]any{
+		"from":     req.From,
+		"to":       req.To,
+		"subject":  req.Subject,
+		"text":     req.Text,
+		"html":     req.Html,
+		"reply_to": req.ReplyTo,
+	})
 
 	resp, err := client.Emails.SendWithContext(context.Background(), req)
 	if err != nil {
-		return "", err
+		return "", sentRaw, err
 	}
 	if resp != nil && resp.Id != "" {
-		return resp.Id, nil
+		return resp.Id, sentRaw, nil
 	}
-	return fmt.Sprintf("resend-%d-%d", candidate.ID, time.Now().UnixNano()), nil
+	return fmt.Sprintf("resend-%d-%d", candidate.ID, time.Now().UnixNano()), sentRaw, nil
 }

@@ -50,7 +50,7 @@ func (a *App) processMail(input MailInput, downstreamAccountID int64) error {
 	selected := a.pickUpstreamCandidates(downstreamAccountID, candidates, mode)
 	var lastErr error
 	for _, candidate := range selected {
-		ruleID, templateID, providerMessageID, providerType, templateData, err := a.sendThroughProvider(candidate, input)
+		ruleID, templateID, providerMessageID, providerType, templateData, sentRaw, err := a.sendThroughProvider(candidate, input)
 		if err != nil {
 			lastErr = err
 			continue
@@ -64,7 +64,7 @@ func (a *App) processMail(input MailInput, downstreamAccountID int64) error {
 		if templateID != 0 {
 			templateAny = templateID
 		}
-		_, _ = a.db.Exec(`update messages set provider_id=?,provider_type=?,rule_id=?,template_id=?,template_data=?,status='sent',provider_message_id=?,updated_at=? where id=?`, candidate.ID, providerType, ruleAny, templateAny, string(templateJSON), providerMessageID, now(), msgID)
+		_, _ = a.db.Exec(`update messages set provider_id=?,provider_type=?,rule_id=?,template_id=?,template_data=?,sent_raw=?,status='sent',provider_message_id=?,updated_at=? where id=?`, candidate.ID, providerType, ruleAny, templateAny, string(templateJSON), sentRaw, providerMessageID, now(), msgID)
 		return nil
 	}
 	if lastErr == nil {
@@ -79,7 +79,7 @@ func (a *App) loadUpstreamCandidates(providerIDs []int64) ([]upstreamCandidate, 
 		return nil, nil
 	}
 	rows, err := a.db.Query(`
-		select p.id, p.name, p.type, p.enabled, p.weight, p.daily_limit, p.created_at, p.updated_at
+		select p.id, p.name, p.type, p.enabled, p.weight, p.daily_limit, p.quota_timezone, p.created_at, p.updated_at
 		from upstream_providers p
 		where p.enabled=1 and p.id in (`+placeholders(len(providerIDs))+`)
 		order by p.weight desc, p.id asc`, intsAny(providerIDs)...)
@@ -91,8 +91,9 @@ func (a *App) loadUpstreamCandidates(providerIDs []int64) ([]upstreamCandidate, 
 	for rows.Next() {
 		var item upstreamCandidate
 		var enabled int
-		_ = rows.Scan(&item.ID, &item.Name, &item.Type, &enabled, &item.Weight, &item.DailyLimit, &item.CreatedAt, &item.UpdatedAt)
+		_ = rows.Scan(&item.ID, &item.Name, &item.Type, &enabled, &item.Weight, &item.DailyLimit, &item.QuotaTimezone, &item.CreatedAt, &item.UpdatedAt)
 		item.Enabled = enabled == 1
+		item.QuotaTimezone = validTimezone(item.QuotaTimezone)
 		if item.Type == "tencent" {
 			cfg, err := a.loadTencentConfig(strconv.FormatInt(item.ID, 10))
 			if err == nil {
@@ -148,56 +149,56 @@ func (a *App) nextRoundRobinIndex(downstreamID int64, size int) int {
 	return cursor % size
 }
 
-func (a *App) sendThroughProvider(candidate upstreamCandidate, input MailInput) (int64, int64, string, string, map[string]string, error) {
+func (a *App) sendThroughProvider(candidate upstreamCandidate, input MailInput) (int64, int64, string, string, map[string]string, string, error) {
 	switch candidate.Type {
 	case "tencent":
 		result, ruleID, err := a.matchProviderRule(candidate, input)
 		if err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, "", err
 		}
 		if result.TemplateID == 0 {
-			return 0, 0, "", "", nil, fmt.Errorf("规则返回的 templateId 不能为 0")
+			return 0, 0, "", "", nil, "", fmt.Errorf("规则返回的 templateId 不能为 0")
 		}
 		if err := a.validateTemplateVars(uint64(candidate.ID), result.TemplateID, result.Variables); err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, "", err
 		}
-		providerMessageID, err := a.sendTencent(candidate, input, result)
+		providerMessageID, sentRaw, err := a.sendTencent(candidate, input, result)
 		if err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
 		if err := a.bumpProviderUsage(candidate.ID); err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
-		return ruleID, int64(result.TemplateID), providerMessageID, "tencent", result.Variables, nil
+		return ruleID, int64(result.TemplateID), providerMessageID, "tencent", result.Variables, sentRaw, nil
 	case "smtp":
-		providerMessageID, err := a.sendSMTPUpstream(candidate, input)
+		providerMessageID, sentRaw, err := a.sendSMTPUpstream(candidate, input)
 		if err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
 		if err := a.bumpProviderUsage(candidate.ID); err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
-		return 0, 0, providerMessageID, "smtp", map[string]string{}, nil
+		return 0, 0, providerMessageID, "smtp", map[string]string{}, sentRaw, nil
 	case "resend":
-		providerMessageID, err := a.sendResend(candidate, input)
+		providerMessageID, sentRaw, err := a.sendResend(candidate, input)
 		if err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
 		if err := a.bumpProviderUsage(candidate.ID); err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
-		return 0, 0, providerMessageID, "resend", map[string]string{}, nil
+		return 0, 0, providerMessageID, "resend", map[string]string{}, sentRaw, nil
 	case "brevo":
-		providerMessageID, err := a.sendBrevo(candidate, input)
+		providerMessageID, sentRaw, err := a.sendBrevo(candidate, input)
 		if err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
 		if err := a.bumpProviderUsage(candidate.ID); err != nil {
-			return 0, 0, "", "", nil, err
+			return 0, 0, "", "", nil, sentRaw, err
 		}
-		return 0, 0, providerMessageID, "brevo", map[string]string{}, nil
+		return 0, 0, providerMessageID, "brevo", map[string]string{}, sentRaw, nil
 	default:
-		return 0, 0, "", "", nil, fmt.Errorf("未知上游类型")
+		return 0, 0, "", "", nil, "", fmt.Errorf("未知上游类型")
 	}
 }
 
@@ -254,7 +255,9 @@ func mimeQEncode(s string) string {
 }
 
 func (a *App) bumpProviderUsage(providerID int64) error {
-	usageDate := time.Now().Format("2006-01-02")
+	var timezone string
+	_ = a.db.QueryRow(`select quota_timezone from upstream_providers where id=?`, providerID).Scan(&timezone)
+	usageDate := providerUsageDate(timezone)
 	_, err := a.db.Exec(`insert into provider_daily_usage(provider_id,usage_date,sent_count) values(?,?,1) on conflict(provider_id,usage_date) do update set sent_count=sent_count+1`, providerID, usageDate)
 	return err
 }
@@ -263,8 +266,10 @@ func (a *App) providerLimitReached(providerID int64, dailyLimit int) bool {
 	if dailyLimit <= 0 {
 		return false
 	}
+	var timezone string
+	_ = a.db.QueryRow(`select quota_timezone from upstream_providers where id=?`, providerID).Scan(&timezone)
 	var count int
-	_ = a.db.QueryRow(`select sent_count from provider_daily_usage where provider_id=? and usage_date=?`, providerID, time.Now().Format("2006-01-02")).Scan(&count)
+	_ = a.db.QueryRow(`select sent_count from provider_daily_usage where provider_id=? and usage_date=?`, providerID, providerUsageDate(timezone)).Scan(&count)
 	return count >= dailyLimit
 }
 

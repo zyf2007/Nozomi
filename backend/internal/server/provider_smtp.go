@@ -55,10 +55,10 @@ func (a *App) loadSMTPConfig(providerID string) (SMTPConfig, error) {
 	return cfg, err
 }
 
-func (a *App) sendSMTPUpstream(candidate upstreamCandidate, input MailInput) (string, error) {
+func (a *App) sendSMTPUpstream(candidate upstreamCandidate, input MailInput) (string, string, error) {
 	cfg := candidate.SMTPConfig
 	if strings.TrimSpace(cfg.Host) == "" {
-		return "", fmt.Errorf("SMTP 上游主机未配置")
+		return "", "", fmt.Errorf("SMTP 上游主机未配置")
 	}
 	hostPort := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	from := firstNonEmpty(strings.TrimSpace(cfg.FromAddress), input.From)
@@ -68,7 +68,7 @@ func (a *App) sendSMTPUpstream(candidate upstreamCandidate, input MailInput) (st
 		auth = smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
 	}
 	if err := smtp.SendMail(hostPort, auth, from, input.To, []byte(raw)); err != nil {
-		return "", err
+		return "", raw, err
 	}
-	return fmt.Sprintf("smtp-%d-%d", candidate.ID, time.Now().UnixNano()), nil
+	return fmt.Sprintf("smtp-%d-%d", candidate.ID, time.Now().UnixNano()), raw, nil
 }

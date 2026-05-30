@@ -19,7 +19,7 @@ func (a *App) saveProviderConfig(providerID int64, providerType string, tencentC
 
 func (a *App) loadProviderDetail(providerID string) (ProviderDetail, error) {
 	var detail ProviderDetail
-	rows, err := a.db.Query(`select id, name, type, enabled, weight, daily_limit, created_at, updated_at from upstream_providers where id=?`, providerID)
+	rows, err := a.db.Query(`select id, name, type, enabled, weight, daily_limit, quota_timezone, created_at, updated_at from upstream_providers where id=?`, providerID)
 	if err != nil {
 		return detail, err
 	}
@@ -28,10 +28,11 @@ func (a *App) loadProviderDetail(providerID string) (ProviderDetail, error) {
 		return detail, fmt.Errorf("上游不存在")
 	}
 	var enabled int
-	if err := rows.Scan(&detail.ID, &detail.Name, &detail.Type, &enabled, &detail.Weight, &detail.DailyLimit, &detail.CreatedAt, &detail.UpdatedAt); err != nil {
+	if err := rows.Scan(&detail.ID, &detail.Name, &detail.Type, &enabled, &detail.Weight, &detail.DailyLimit, &detail.QuotaTimezone, &detail.CreatedAt, &detail.UpdatedAt); err != nil {
 		return detail, err
 	}
 	detail.Enabled = enabled == 1
+	detail.QuotaTimezone = validTimezone(detail.QuotaTimezone)
 	if cfg, err := a.loadTencentConfig(providerID); err == nil {
 		detail.TencentConfig = cfg
 	}

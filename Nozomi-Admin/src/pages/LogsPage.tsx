@@ -1,4 +1,4 @@
-import { Card, Table } from 'antd'
+import { Card, Space, Table, Typography } from 'antd'
 import type { RelayMessage } from '../types'
 import { statusTag } from '../utils/format'
 
@@ -11,18 +11,27 @@ export function LogsPage({ messages }: { messages: RelayMessage[] }) {
         scroll={{ x: 1280 }}
         expandable={{
           expandedRowRender: (record) => (
-            <pre className="json-block">
-              {JSON.stringify(
-                {
-                  template_data: record.template_data,
-                  provider_message_id: record.provider_message_id,
-                  callback_reason: record.callback_reason,
-                  error: record.error,
-                },
-                null,
-                2,
-              )}
-            </pre>
+            <Space direction="vertical" size={12} className="full">
+              <div>
+                <Typography.Text strong>发出去的邮件原文</Typography.Text>
+                <pre className="json-block log-raw-block">{record.sent_raw || '(暂无，可能是旧日志或发送失败)'}</pre>
+              </div>
+              <div>
+                <Typography.Text strong>日志详情</Typography.Text>
+                <pre className="json-block log-detail-block">
+                  {JSON.stringify(
+                    {
+                      template_data: record.template_data,
+                      provider_message_id: record.provider_message_id,
+                      callback_reason: record.callback_reason,
+                      error: record.error,
+                    },
+                    null,
+                    2,
+                  )}
+                </pre>
+              </div>
+            </Space>
           ),
         }}
         columns={[

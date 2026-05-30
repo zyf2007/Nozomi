@@ -51,26 +51,26 @@ func (a *App) loadBrevoConfig(providerID string) (BrevoConfig, error) {
 	return cfg, err
 }
 
-func (a *App) sendBrevo(candidate upstreamCandidate, input MailInput) (string, error) {
+func (a *App) sendBrevo(candidate upstreamCandidate, input MailInput) (string, string, error) {
 	cfg := candidate.BrevoConfig
 	apiKey := strings.TrimSpace(cfg.APIKey)
 	if apiKey == "" {
-		return "", fmt.Errorf("Brevo API key 未配置")
+		return "", "", fmt.Errorf("Brevo API key 未配置")
 	}
 
 	from := firstNonEmpty(strings.TrimSpace(cfg.FromAddress), strings.TrimSpace(input.From))
 	if from == "" {
-		return "", fmt.Errorf("Brevo 发信地址未配置")
+		return "", "", fmt.Errorf("Brevo 发信地址未配置")
 	}
 	subject := firstNonEmpty(strings.TrimSpace(input.Subject), "Nozomi Relay")
 	textBody := strings.TrimSpace(input.Text)
 	htmlBody := strings.TrimSpace(input.HTML)
 	if len(input.To) == 0 {
-		return "", fmt.Errorf("收件人为空")
+		return "", "", fmt.Errorf("收件人为空")
 	}
 	if htmlBody == "" {
 		if textBody == "" {
-			return "", fmt.Errorf("邮件正文为空")
+			return "", "", fmt.Errorf("邮件正文为空")
 		}
 		htmlBody = "<pre style=\"white-space:pre-wrap;word-break:break-word;\">" + stdhtml.EscapeString(textBody) + "</pre>"
 	}
@@ -98,13 +98,21 @@ func (a *App) sendBrevo(candidate upstreamCandidate, input MailInput) (string, e
 			req.To = append(req.To, brevo.SendSmtpEmailTo{Email: rcpt})
 		}
 	}
+	sentRaw := jsonString(map[string]any{
+		"from":    req.Sender,
+		"to":      req.To,
+		"subject": req.Subject,
+		"text":    req.TextContent,
+		"html":    req.HtmlContent,
+		"replyTo": req.ReplyTo,
+	})
 
 	resp, _, err := apiClient.TransactionalEmailsApi.SendTransacEmail(ctx, req)
 	if err != nil {
-		return "", err
+		return "", sentRaw, err
 	}
 	if resp.MessageId != "" {
-		return resp.MessageId, nil
+		return resp.MessageId, sentRaw, nil
 	}
-	return fmt.Sprintf("brevo-%d-%d", candidate.ID, time.Now().UnixNano()), nil
+	return fmt.Sprintf("brevo-%d-%d", candidate.ID, time.Now().UnixNano()), sentRaw, nil
 }

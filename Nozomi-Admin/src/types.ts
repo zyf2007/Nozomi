@@ -51,6 +51,7 @@ export type Provider = {
   enabled: boolean
   weight: number
   daily_limit: number
+  quota_timezone: string
   created_at: string
   updated_at: string
   today_sent: number
@@ -125,6 +126,7 @@ export type RelayMessage = {
   from: string
   to: string
   subject: string
+  sent_raw: string
   downstream_account_id: number | null
   provider_id: number | null
   provider_type: string

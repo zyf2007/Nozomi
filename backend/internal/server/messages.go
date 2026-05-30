@@ -9,7 +9,7 @@ import (
 )
 
 func (a *App) listMessages(c *gin.Context) {
-	rows, err := a.db.Query(`select id,downstream_account_id,downstream_from,downstream_to,subject,provider_id,provider_type,rule_id,template_id,template_data,status,error,provider_message_id,callback_event,callback_reason,bounce_type,created_at,updated_at from messages order by id desc limit 200`)
+	rows, err := a.db.Query(`select id,downstream_account_id,downstream_from,downstream_to,subject,sent_raw,provider_id,provider_type,rule_id,template_id,template_data,status,error,provider_message_id,callback_event,callback_reason,bounce_type,created_at,updated_at from messages order by id desc limit 200`)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -20,14 +20,15 @@ func (a *App) listMessages(c *gin.Context) {
 		var id int64
 		var downstreamAccountID, providerID sql.NullInt64
 		var ruleID, templateID sql.NullInt64
-		var from, to, subject, data, status, errText, providerType, providerMessageID, event, reason, bounce, createdAt, updatedAt string
-		_ = rows.Scan(&id, &downstreamAccountID, &from, &to, &subject, &providerID, &providerType, &ruleID, &templateID, &data, &status, &errText, &providerMessageID, &event, &reason, &bounce, &createdAt, &updatedAt)
+		var from, to, subject, sentRaw, data, status, errText, providerType, providerMessageID, event, reason, bounce, createdAt, updatedAt string
+		_ = rows.Scan(&id, &downstreamAccountID, &from, &to, &subject, &sentRaw, &providerID, &providerType, &ruleID, &templateID, &data, &status, &errText, &providerMessageID, &event, &reason, &bounce, &createdAt, &updatedAt)
 		items = append(items, gin.H{
 			"id":                    id,
 			"downstream_account_id": nullableInt(downstreamAccountID),
 			"from":                  from,
 			"to":                    to,
 			"subject":               subject,
+			"sent_raw":              sentRaw,
 			"provider_id":           nullableInt(providerID),
 			"provider_type":         providerType,
 			"rule_id":               nullableInt(ruleID),

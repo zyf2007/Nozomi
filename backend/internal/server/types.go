@@ -34,15 +34,16 @@ type RuleResult struct {
 }
 
 type Provider struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Enabled    bool   `json:"enabled"`
-	Weight     int    `json:"weight"`
-	DailyLimit int    `json:"daily_limit"`
-	CreatedAt  string `json:"created_at"`
-	UpdatedAt  string `json:"updated_at"`
-	TodaySent  int64  `json:"today_sent"`
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Enabled       bool   `json:"enabled"`
+	Weight        int    `json:"weight"`
+	DailyLimit    int    `json:"daily_limit"`
+	QuotaTimezone string `json:"quota_timezone"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	TodaySent     int64  `json:"today_sent"`
 }
 
 type ProviderDetail struct {
@@ -129,6 +130,7 @@ type RelayMessage struct {
 	From              string            `json:"from"`
 	To                string            `json:"to"`
 	Subject           string            `json:"subject"`
+	SentRaw           string            `json:"sent_raw"`
 	DownstreamID      int64             `json:"downstream_id"`
 	ProviderID        int64             `json:"provider_id"`
 	ProviderType      string            `json:"provider_type"`

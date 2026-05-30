@@ -32,6 +32,15 @@ export function SettingsPage({
     resend: 'Resend',
     brevo: 'Brevo',
   }
+  const timezoneLabelMap = new Map([
+    ['UTC', 'UTC'],
+    ['Asia/Shanghai', '北京时间'],
+    ['Asia/Tokyo', '东京时间'],
+    ['Asia/Singapore', '新加坡时间'],
+    ['America/New_York', '美国东部'],
+    ['America/Los_Angeles', '美国太平洋'],
+    ['Europe/Berlin', '欧洲中部'],
+  ])
 
   return (
     <Card
@@ -87,6 +96,12 @@ export function SettingsPage({
           },
           { title: '每日上限', dataIndex: 'daily_limit', width: 120 },
           { title: '今日已发', dataIndex: 'today_sent', width: 100 },
+          {
+            title: '刷新时区',
+            dataIndex: 'quota_timezone',
+            width: 130,
+            render: (value) => timezoneLabelMap.get(value) || value,
+          },
           {
             title: '启用',
             dataIndex: 'enabled',

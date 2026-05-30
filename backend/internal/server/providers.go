@@ -3,20 +3,16 @@ package server
 import (
 	"encoding/json"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	ses "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ses/v20201002"
 )
 
 func (a *App) listProviders(c *gin.Context) {
-	today := time.Now().Format("2006-01-02")
 	rows, err := a.db.Query(`
-		select p.id, p.name, p.type, p.enabled, p.weight, p.daily_limit, p.created_at, p.updated_at,
-		       coalesce(u.sent_count, 0)
+		select p.id, p.name, p.type, p.enabled, p.weight, p.daily_limit, p.quota_timezone, p.created_at, p.updated_at
 		from upstream_providers p
-		left join provider_daily_usage u on u.provider_id = p.id and u.usage_date = ?
-		order by p.weight desc, p.id asc`, today)
+		order by p.weight desc, p.id asc`)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -26,8 +22,10 @@ func (a *App) listProviders(c *gin.Context) {
 	for rows.Next() {
 		var item Provider
 		var enabled int
-		_ = rows.Scan(&item.ID, &item.Name, &item.Type, &enabled, &item.Weight, &item.DailyLimit, &item.CreatedAt, &item.UpdatedAt, &item.TodaySent)
+		_ = rows.Scan(&item.ID, &item.Name, &item.Type, &enabled, &item.Weight, &item.DailyLimit, &item.QuotaTimezone, &item.CreatedAt, &item.UpdatedAt)
 		item.Enabled = enabled == 1
+		item.QuotaTimezone = validTimezone(item.QuotaTimezone)
+		_ = a.db.QueryRow(`select coalesce(sent_count, 0) from provider_daily_usage where provider_id=? and usage_date=?`, item.ID, providerUsageDate(item.QuotaTimezone)).Scan(&item.TodaySent)
 		items = append(items, item)
 	}
 	c.JSON(200, items)
@@ -35,15 +33,16 @@ func (a *App) listProviders(c *gin.Context) {
 
 func (a *App) createProvider(c *gin.Context) {
 	var body struct {
-		Name       string        `json:"name"`
-		Type       string        `json:"type"`
-		Enabled    bool          `json:"enabled"`
-		Weight     int           `json:"weight"`
-		DailyLimit int           `json:"daily_limit"`
-		Tencent    TencentConfig `json:"tencent_config"`
-		SMTP       SMTPConfig    `json:"smtp_config"`
-		Resend     ResendConfig  `json:"resend_config"`
-		Brevo      BrevoConfig   `json:"brevo_config"`
+		Name          string        `json:"name"`
+		Type          string        `json:"type"`
+		Enabled       bool          `json:"enabled"`
+		Weight        int           `json:"weight"`
+		DailyLimit    int           `json:"daily_limit"`
+		QuotaTimezone string        `json:"quota_timezone"`
+		Tencent       TencentConfig `json:"tencent_config"`
+		SMTP          SMTPConfig    `json:"smtp_config"`
+		Resend        ResendConfig  `json:"resend_config"`
+		Brevo         BrevoConfig   `json:"brevo_config"`
 	}
 	if err := c.BindJSON(&body); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
@@ -57,7 +56,7 @@ func (a *App) createProvider(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "上游类型必须是 tencent、smtp、resend 或 brevo"})
 		return
 	}
-	res, err := a.db.Exec(`insert into upstream_providers(name,type,enabled,weight,daily_limit,created_at,updated_at) values(?,?,?,?,?,?,?)`, body.Name, body.Type, boolInt(body.Enabled), body.Weight, body.DailyLimit, now(), now())
+	res, err := a.db.Exec(`insert into upstream_providers(name,type,enabled,weight,daily_limit,quota_timezone,created_at,updated_at) values(?,?,?,?,?,?,?,?)`, body.Name, body.Type, boolInt(body.Enabled), body.Weight, body.DailyLimit, validTimezone(body.QuotaTimezone), now(), now())
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -83,16 +82,17 @@ func (a *App) getProvider(c *gin.Context) {
 func (a *App) updateProvider(c *gin.Context) {
 	id := c.Param("id")
 	var body struct {
-		Name       string `json:"name"`
-		Enabled    bool   `json:"enabled"`
-		Weight     int    `json:"weight"`
-		DailyLimit int    `json:"daily_limit"`
+		Name          string `json:"name"`
+		Enabled       bool   `json:"enabled"`
+		Weight        int    `json:"weight"`
+		DailyLimit    int    `json:"daily_limit"`
+		QuotaTimezone string `json:"quota_timezone"`
 	}
 	if err := c.BindJSON(&body); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	if _, err := a.db.Exec(`update upstream_providers set name=?, enabled=?, weight=?, daily_limit=?, updated_at=? where id=?`, body.Name, boolInt(body.Enabled), body.Weight, body.DailyLimit, now(), id); err != nil {
+	if _, err := a.db.Exec(`update upstream_providers set name=?, enabled=?, weight=?, daily_limit=?, quota_timezone=?, updated_at=? where id=?`, body.Name, boolInt(body.Enabled), body.Weight, body.DailyLimit, validTimezone(body.QuotaTimezone), now(), id); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}

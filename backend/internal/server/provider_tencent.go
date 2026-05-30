@@ -90,15 +90,15 @@ func newTencentClient(secretID, secretKey, region string) (*ses.Client, error) {
 	return ses.NewClient(cred, region, cpf)
 }
 
-func (a *App) sendTencent(candidate upstreamCandidate, input MailInput, result RuleResult) (string, error) {
+func (a *App) sendTencent(candidate upstreamCandidate, input MailInput, result RuleResult) (string, string, error) {
 	client, err := a.tencentClient(candidate.TencentConfig)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	cfg := candidate.TencentConfig
 	from := strings.TrimSpace(cfg.FromAddress)
 	if from == "" {
-		return "", fmt.Errorf("腾讯云发信地址未配置")
+		return "", "", fmt.Errorf("腾讯云发信地址未配置")
 	}
 	triggerType, _ := strconv.ParseUint(firstNonEmpty(cfg.TriggerType, "1"), 10, 64)
 	templateData, _ := json.Marshal(result.Variables)
@@ -115,12 +115,23 @@ func (a *App) sendTencent(candidate upstreamCandidate, input MailInput, result R
 	req.HeaderFrom = &from
 	req.TriggerType = &triggerType
 	req.Template = &ses.Template{TemplateID: &result.TemplateID, TemplateData: ptrStr(string(templateData))}
+	sentRaw := jsonString(map[string]any{
+		"from":          from,
+		"to":            input.To,
+		"subject":       subject,
+		"reply_to":      replyTo,
+		"trigger_type":  triggerType,
+		"template_id":   result.TemplateID,
+		"template_data": result.Variables,
+		"provider_type": "tencent",
+		"render_source": "腾讯云 SES 模板邮件，原文由腾讯云按模板渲染生成",
+	})
 	resp, err := client.SendEmail(req)
 	if err != nil {
-		return "", fmt.Errorf("%s", tencentErr(err))
+		return "", sentRaw, fmt.Errorf("%s", tencentErr(err))
 	}
 	if resp.Response != nil && resp.Response.MessageId != nil {
-		return *resp.Response.MessageId, nil
+		return *resp.Response.MessageId, sentRaw, nil
 	}
-	return "", nil
+	return "", sentRaw, nil
 }

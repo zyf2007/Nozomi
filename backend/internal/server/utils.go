@@ -36,6 +36,25 @@ func findTemplateVars(s string) []string {
 
 func now() string { return time.Now().Format(time.RFC3339) }
 
+func validTimezone(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "Asia/Shanghai"
+	}
+	if _, err := time.LoadLocation(name); err != nil {
+		return "Asia/Shanghai"
+	}
+	return name
+}
+
+func providerUsageDate(timezone string) string {
+	loc, err := time.LoadLocation(validTimezone(timezone))
+	if err != nil {
+		loc = time.Local
+	}
+	return time.Now().In(loc).Format("2006-01-02")
+}
+
 func boolInt(v bool) int {
 	if v {
 		return 1
