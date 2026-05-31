@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"github.com/joho/godotenv"
@@ -8,6 +9,9 @@ import (
 )
 
 func main() {
+	webMode := flag.String("web", "auto", "static web mode: auto or off")
+	flag.Parse()
+
 	_ = godotenv.Load()
-	log.Fatal(server.Run())
+	log.Fatal(server.Run(server.Options{WebMode: *webMode}))
 }

@@ -2,13 +2,14 @@ package server
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func Run() error {
+func Run(options Options) error {
 	settings := loadSettings()
 	if err := os.MkdirAll(settings.DataDir, 0755); err != nil {
 		return err
@@ -36,7 +37,21 @@ func Run() error {
 		}
 	}()
 
-	r := app.router()
+	r, err := app.router(options)
+	if err != nil {
+		return err
+	}
 	log.Printf("admin api listening on %s, smtp relay listening on %s", settings.HTTPAddr, settings.SMTPAddr)
 	return r.Run(settings.HTTPAddr)
+}
+
+func normalizeWebMode(mode string) (string, error) {
+	switch mode {
+	case "", "auto":
+		return "auto", nil
+	case "off":
+		return "off", nil
+	default:
+		return "", fmt.Errorf("invalid web mode %q, expected auto or off", mode)
+	}
 }

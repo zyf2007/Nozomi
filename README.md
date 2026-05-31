@@ -49,6 +49,41 @@ NOZOMI_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://192.168.3
 
 开发模式下，前端 `npm run dev` 仍然是通过 Vite 代理把 `/api` 转发到 `http://127.0.0.1:5000`，不是直接从浏览器打 5000。
 
+## 构建模式
+
+项目支持两种构建模式：
+
+### 前后端分离模式
+
+只构建 Go 后端，前端单独部署或用 Vite 开发服务运行：
+
+```bash
+./scripts/build.sh separate
+./dist/nozomi-relay
+```
+
+这是默认的 API-only 二进制，不包含前端静态文件。
+
+### 合并模式
+
+先构建前端，再把 `Nozomi-Admin/dist` 嵌入 Go 二进制，由 Go 同时提供 API 和管理面板静态服务：
+
+```bash
+./scripts/build.sh embedded
+./dist/nozomi-relay-embedded
+```
+
+启动后访问后端 HTTP 地址即可打开管理面板，例如默认的 `http://127.0.0.1:5000`。`/api/*` 仍然走后端 API，其它路径会优先返回静态文件，未命中时回退到 `index.html` 以支持前端路由。
+
+运行时可以用命令行参数控制是否启用内置静态服务：
+
+```bash
+./dist/nozomi-relay-embedded -web auto
+./dist/nozomi-relay-embedded -web off
+```
+
+普通分离模式二进制即使使用 `-web auto` 也不会提供前端静态文件，因为构建时没有嵌入 dist。
+
 ## 规则脚本
 
 规则脚本运行在 Go 内嵌 JavaScript 引擎中，后端提供 `input`：

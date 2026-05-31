@@ -1,13 +1,20 @@
 package server
 
 import (
+	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func (a *App) router() *gin.Engine {
+func (a *App) router(options Options) (*gin.Engine, error) {
+	webMode, err := normalizeWebMode(options.WebMode)
+	if err != nil {
+		return nil, err
+	}
+
 	r := gin.Default()
 	origins := a.settings.CORSOrigins
 	if len(origins) == 0 {
@@ -54,7 +61,41 @@ func (a *App) router() *gin.Engine {
 	admin.GET("/messages", a.listMessages)
 	admin.GET("/stats", a.stats)
 	r.POST("/api/callback/tencent", a.tencentCallback)
-	return r
+
+	if webMode == "auto" {
+		if webFiles, ok := embeddedWebFS(); ok {
+			a.mountEmbeddedWeb(r, webFiles)
+		}
+	}
+
+	return r, nil
+}
+
+func (a *App) mountEmbeddedWeb(r *gin.Engine, webFiles fs.FS) {
+	fileServer := http.FileServer(http.FS(webFiles))
+
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") || c.Request.URL.Path == "/api" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+
+		filePath := strings.TrimPrefix(c.Request.URL.Path, "/")
+		if filePath == "" {
+			filePath = "index.html"
+		}
+		if _, err := fs.Stat(webFiles, filePath); err == nil {
+			fileServer.ServeHTTP(c.Writer, c.Request)
+			return
+		}
+
+		index, err := fs.ReadFile(webFiles, "index.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", index)
+	})
 }
 
 func (a *App) login(c *gin.Context) {
